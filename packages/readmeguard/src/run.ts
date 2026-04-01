@@ -29,9 +29,7 @@ export interface RunOptions {
  *
  * As a post-push hook, we analyze what was just pushed.
  * We use READMEGUARD_BASE_REF (set by the hook script or hookrunner)
- * or fall back to HEAD~1..HEAD for manual runs.
- *
- * As a fallback for pre-push or manual mode, we diff against upstream.
+ * or fall back to diffing against the upstream tracking branch.
  */
 function getRefRange(): { base: string; head: string } | null {
   // Check if base ref was passed via env (set by post-push hook)
@@ -141,7 +139,10 @@ export async function run(options: RunOptions = {}): Promise<number> {
     execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...updatedPaths]);
     // Auto-push the README update
     try {
-      execFileSync("git", ["push"], { stdio: "inherit" });
+      execFileSync("git", ["push"], {
+        stdio: "inherit",
+        env: { ...process.env, READMEGUARD_SKIP: "1" },
+      });
       process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
     } catch {
       showWarning("README committed but auto-push failed. Run `git push` to push the update.");
