@@ -193,7 +193,7 @@ describe("run", () => {
       );
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["commit", "-m", "docs: update README(s)", "--", "packages/hookrunner/README.md"]);
-      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["push"], { stdio: "inherit" });
+      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["push"], expect.objectContaining({ stdio: "inherit" }));
     });
 
     it("interactive mode non-TTY: skips with warning, returns 0", async () => {
@@ -224,7 +224,7 @@ describe("run", () => {
         expect.stringContaining("packages/hookrunner/README.md"),
         "# New README",
       );
-      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["push"], { stdio: "inherit" });
+      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["push"], expect.objectContaining({ stdio: "inherit" }));
     });
 
     it("interactive mode with TTY: returns 0 when user chooses n for all", async () => {

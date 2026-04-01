@@ -196,9 +196,12 @@ export async function run(options: RunOptions = {}): Promise<number> {
   }
 
   execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...stagedPaths]);
-  // Auto-push the README update
+  // Auto-push the README update (with READMEGUARD_SKIP to prevent recursive post-push)
   try {
-    execFileSync("git", ["push"], { stdio: "inherit" });
+    execFileSync("git", ["push"], {
+      stdio: "inherit",
+      env: { ...process.env, READMEGUARD_SKIP: "1" },
+    });
     process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
   } catch {
     showWarning("README committed but auto-push failed. Run `git push` to push the update.");

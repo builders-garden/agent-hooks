@@ -12,12 +12,12 @@ import {
   HookType,
 } from "../types.js";
 
-/** Ensure a loaded config has all supported hook type keys */
+/** Ensure a loaded config has all supported hook type keys (deep-copies arrays) */
 function normalizeConfig(config: Partial<HookRunnerConfig>): HookRunnerConfig {
-  const result: HookRunnerConfig = { ...DEFAULT_CONFIG };
+  const result: HookRunnerConfig = { "pre-push": [], "post-push": [] };
   for (const hookType of SUPPORTED_HOOK_TYPES) {
     if (Array.isArray(config[hookType])) {
-      result[hookType] = config[hookType];
+      result[hookType] = [...config[hookType]];
     }
   }
   return result;
@@ -67,7 +67,7 @@ export function loadConfig(): HookRunnerConfig {
     }
   }
 
-  if (!globalConfig && !repoConfig) return { ...DEFAULT_CONFIG };
+  if (!globalConfig && !repoConfig) return { "pre-push": [], "post-push": [] };
   if (!globalConfig) return repoConfig!;
   return mergeConfigs(globalConfig, repoConfig);
 }
