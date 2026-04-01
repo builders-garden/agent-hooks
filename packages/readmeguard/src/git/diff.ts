@@ -1,4 +1,4 @@
-import { execFileSync, execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 /**
  * Get the diff of unpushed commits compared to the upstream tracking branch.
