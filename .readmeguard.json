@@ -1,5 +1,5 @@
 {
   "provider": "claude",
-  "mode": "interactive",
+  "mode": "auto",
   "customPrompt": "Be proactive about updating the README. Any new CLI command, new feature, new configuration option, or new package should trigger a README update. Err on the side of updating rather than skipping."
 }
