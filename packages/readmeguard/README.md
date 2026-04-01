@@ -1,14 +1,15 @@
 # @agent-automation/readmeguard
 
-Pre-push hook that uses AI to selectively update your README when substantial changes are detected. Supports Claude Code and Codex CLI as AI providers.
+Pre-push hook that uses AI to selectively update your READMEs when substantial changes are detected. Supports monorepos with multiple READMEs and scoped analysis. Uses Claude Code or Codex CLI as AI providers.
 
 ## How it works
 
 1. You run `git push`.
-2. readmeguard diffs your unpushed commits against the upstream branch.
-3. An AI provider analyzes the diff and your current README.
-4. If the README needs updating, it either auto-commits the change or prompts you to review it (depending on mode).
-5. The push is blocked so you can push again with the README update included.
+2. readmeguard discovers all `README.md` files tracked in the repository.
+3. It diffs your unpushed commits against the upstream branch and groups changed files by their closest README.
+4. An AI provider analyzes each scoped diff alongside the corresponding README.
+5. If any README needs updating, it either auto-commits the changes or prompts you to review each one (depending on mode).
+6. The push is blocked so you can push again with the README updates included.
 
 ## Prerequisites
 
@@ -47,6 +48,20 @@ hookrunner add readmeguard --command "readmeguard run"
 ```
 
 Registers readmeguard as a managed hook under hookrunner.
+
+## Monorepo support
+
+readmeguard automatically discovers all `README.md` files tracked by git and scopes its analysis accordingly. When files change in a package that has its own README, only that README is analyzed and updated — the root README is not affected by those changes, and vice versa.
+
+For example, in a repo with:
+
+```
+README.md
+packages/foo/README.md
+packages/bar/README.md
+```
+
+A change to `packages/foo/src/index.ts` will only trigger analysis of `packages/foo/README.md`. Changes to `src/app.ts` will only trigger analysis of the root `README.md`.
 
 ## Configuration
 
@@ -133,13 +148,15 @@ readmeguard update
 
 ## Example output
 
-When the README is updated:
+When READMEs are updated:
 
 ```
-readmeguard: README update detected.
+readmeguard: Analyzing changes across 2 README scope(s)...
+readmeguard: Checking packages/foo/README.md (3 changed file(s))...
+readmeguard: Checking README.md (1 changed file(s))...
+readmeguard: 1 README(s) to update: packages/foo/README.md
 
---- a/README.md
-+++ b/README.md
+--- packages/foo/README.md ---
 @@ -10,6 +10,8 @@
  ## Features
 +- New export API for programmatic usage
@@ -153,7 +170,7 @@ readmeguard: README updated and committed. Run `git push` again to include the u
 When no update is needed:
 
 ```
-readmeguard: No README update needed.
+readmeguard: No README updates needed.
 ```
 
 ## Skip
