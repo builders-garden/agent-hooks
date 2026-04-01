@@ -134,6 +134,58 @@ program
   });
 
 program
+  .command("enable <name>")
+  .description("Enable a disabled hook")
+  .option("--local", "Modify repo-level config instead of global", false)
+  .action((name, opts) => {
+    const config: HookRunnerConfig = opts.local
+      ? loadRepoConfig()
+      : loadGlobalConfigOnly();
+    const hook = config["pre-push"].find((h) => h.name === name);
+    if (!hook) {
+      console.error(`Hook "${name}" not found.`);
+      process.exit(1);
+    }
+    if (hook.enabled) {
+      console.log(`Hook "${name}" is already enabled.`);
+      return;
+    }
+    hook.enabled = true;
+    if (opts.local) {
+      saveRepoConfig(config);
+    } else {
+      saveGlobalConfig(config);
+    }
+    console.log(`Enabled hook "${name}".`);
+  });
+
+program
+  .command("disable <name>")
+  .description("Disable a hook without removing it")
+  .option("--local", "Modify repo-level config instead of global", false)
+  .action((name, opts) => {
+    const config: HookRunnerConfig = opts.local
+      ? loadRepoConfig()
+      : loadGlobalConfigOnly();
+    const hook = config["pre-push"].find((h) => h.name === name);
+    if (!hook) {
+      console.error(`Hook "${name}" not found.`);
+      process.exit(1);
+    }
+    if (!hook.enabled) {
+      console.log(`Hook "${name}" is already disabled.`);
+      return;
+    }
+    hook.enabled = false;
+    if (opts.local) {
+      saveRepoConfig(config);
+    } else {
+      saveGlobalConfig(config);
+    }
+    console.log(`Disabled hook "${name}".`);
+  });
+
+program
   .command("exec <hook-type> [args...]")
   .description("Execute hooks for a given hook type (called by git)")
   .allowUnknownOption()
