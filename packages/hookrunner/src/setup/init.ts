@@ -14,6 +14,24 @@ export interface InitOptions {
 }
 
 function makeHookScript(hookType: string): string {
+  if (hookType === "pre-push") {
+    // Save the upstream ref to a temp file before push so post-push hooks can diff against it.
+    // The pre-push and post-push scripts run as separate processes, so env vars don't carry over.
+    return `#!/bin/sh
+git rev-parse @{upstream} 2>/dev/null > /tmp/.hookrunner-base-ref 2>/dev/null || true
+hookrunner exec pre-push "$@"
+`;
+  }
+  if (hookType === "post-push") {
+    // Read the base ref saved by pre-push and pass it to post-push hooks
+    return `#!/bin/sh
+if [ -f /tmp/.hookrunner-base-ref ]; then
+  export READMEGUARD_BASE_REF=$(cat /tmp/.hookrunner-base-ref)
+  rm -f /tmp/.hookrunner-base-ref
+fi
+hookrunner exec post-push "$@"
+`;
+  }
   return `#!/bin/sh\nhookrunner exec ${hookType} "$@"\n`;
 }
 

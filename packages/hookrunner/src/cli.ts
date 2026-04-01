@@ -273,8 +273,12 @@ program
   .allowUnknownOption()
   .passThroughOptions()
   .action(async (hookType, args) => {
+    if (!SUPPORTED_HOOK_TYPES.includes(hookType as HookType)) {
+      console.error(`Unknown hook type "${hookType}". Supported: ${SUPPORTED_HOOK_TYPES.join(", ")}`);
+      process.exit(1);
+    }
     const config = loadConfig();
-    const hooks = config[hookType as keyof typeof config] ?? [];
+    const hooks = config[hookType as HookType] ?? [];
     const stdinBuffer = await readStdin();
     const result = runHooks(hooks, stdinBuffer, args);
     process.exit(result.exitCode);
