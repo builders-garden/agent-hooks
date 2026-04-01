@@ -12,10 +12,22 @@ export function getUnpushedDiff(
   const branch = getCurrentBranch();
   const upstream = getUpstream();
 
+  if (!upstream) {
+    // No upstream ref exists (e.g., first push to empty remote) — skip
+    return { diff: "", branch };
+  }
+
   // Check if there are unpushed commits
-  const log = execSync(`git log ${upstream}..HEAD --oneline`, {
-    encoding: "utf-8",
-  }).trim();
+  let log: string;
+  try {
+    log = execSync(`git log ${upstream}..HEAD --oneline`, {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    // Upstream ref doesn't exist in git history — skip
+    return { diff: "", branch };
+  }
 
   if (!log) {
     return { diff: "", branch };
@@ -53,13 +65,26 @@ export function getCurrentBranch(): string {
 /**
  * Get the upstream tracking branch, falling back to origin/main.
  */
-function getUpstream(): string {
+function getUpstream(): string | null {
   try {
-    return execSync("git rev-parse --abbrev-ref @{upstream}", {
+    const upstream = execSync("git rev-parse --abbrev-ref @{upstream}", {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
+    // Verify the ref actually exists
+    execSync(`git rev-parse --verify ${upstream}`, {
+      stdio: ["pipe", "pipe", "pipe"],
+    });
+    return upstream;
   } catch {
-    return "origin/main";
+    // Try origin/main as fallback
+    try {
+      execSync("git rev-parse --verify origin/main", {
+        stdio: ["pipe", "pipe", "pipe"],
+      });
+      return "origin/main";
+    } catch {
+      return null;
+    }
   }
 }
