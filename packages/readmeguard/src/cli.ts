@@ -26,8 +26,9 @@ program
   });
 
 program
-  .command("run")
+  .command("run [args...]")
   .description("Run analysis (called by git hook or hookrunner)")
+  .allowUnknownOption()
   .action(async () => {
     const exitCode = await run();
     process.exit(exitCode);
