@@ -1,0 +1,32 @@
+{
+  "name": "@agent-automation/hook-template",
+  "version": "0.1.0",
+  "description": "Template for creating new pre-push hooks in the agent-hooks monorepo",
+  "type": "module",
+  "main": "./dist/index.js",
+  "types": "./dist/index.d.ts",
+  "bin": {
+    "hook-template": "./dist/cli.js"
+  },
+  "scripts": {
+    "build": "tsup",
+    "test": "vitest run"
+  },
+  "files": [
+    "dist",
+    "bin"
+  ],
+  "engines": {
+    "node": ">=22.14.0"
+  },
+  "keywords": [
+    "git",
+    "hooks",
+    "pre-push",
+    "template"
+  ],
+  "license": "MIT",
+  "dependencies": {
+    "commander": "^14.0.3"
+  }
+}
