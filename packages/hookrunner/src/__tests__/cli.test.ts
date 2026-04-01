@@ -60,6 +60,10 @@ function readJsonFile(path: string): HookRunnerConfig {
   return JSON.parse(readFileSync(path, "utf-8"));
 }
 
+function makeEmptyConfig(): HookRunnerConfig {
+  return { "pre-push": [], "pre-commit": [] };
+}
+
 describe("CLI", () => {
   it("prints help", () => {
     const output = runCli("--help");
@@ -87,7 +91,7 @@ describe("CLI", () => {
       mkdirSync(configDir, { recursive: true });
       writeFileSync(
         join(configDir, "config.json"),
-        JSON.stringify({ "pre-push": [] }, null, 2) + "\n",
+        JSON.stringify(makeEmptyConfig(), null, 2) + "\n",
       );
       globalConfigPath = join(configDir, "config.json");
     });
@@ -96,7 +100,7 @@ describe("CLI", () => {
       rmSync(tmpHome, { recursive: true, force: true });
     });
 
-    it("adds a hook to global config", () => {
+    it("adds a hook to global config (default pre-push)", () => {
       const output = runCli(
         'add pushguard --command "pushguard run"',
         { HOME: tmpHome },
@@ -112,6 +116,26 @@ describe("CLI", () => {
         order: 1,
         enabled: true,
       });
+    });
+
+    it("adds a hook to pre-commit with --type pre-commit", () => {
+      const output = runCli(
+        'add readmeguard --command "readmeguard run" --type pre-commit',
+        { HOME: tmpHome },
+      );
+      expect(output).toContain("Added hook");
+      expect(output).toContain("pre-commit");
+
+      const config = readJsonFile(globalConfigPath);
+      expect(config["pre-commit"]).toHaveLength(1);
+      expect(config["pre-commit"][0]).toMatchObject({
+        name: "readmeguard",
+        command: "readmeguard run",
+        order: 1,
+        enabled: true,
+      });
+      // pre-push should be untouched
+      expect(config["pre-push"]).toHaveLength(0);
     });
 
     it("auto-increments order when adding multiple hooks", () => {
@@ -165,7 +189,9 @@ describe("CLI", () => {
       const config: HookRunnerConfig = {
         "pre-push": [
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
-          { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
+        ],
+        "pre-commit": [
+          { name: "readmeguard", command: "readmeguard run", order: 1, enabled: true },
         ],
       };
       writeFileSync(
@@ -179,12 +205,21 @@ describe("CLI", () => {
       rmSync(tmpHome, { recursive: true, force: true });
     });
 
-    it("removes a hook by name", () => {
+    it("removes a hook by name from default type (pre-push)", () => {
       runCli("remove pushguard", { HOME: tmpHome });
 
       const config = readJsonFile(globalConfigPath);
+      expect(config["pre-push"]).toHaveLength(0);
+      // pre-commit should be untouched
+      expect(config["pre-commit"]).toHaveLength(1);
+    });
+
+    it("removes a hook from pre-commit with --type", () => {
+      runCli("remove readmeguard --type pre-commit", { HOME: tmpHome });
+
+      const config = readJsonFile(globalConfigPath);
+      expect(config["pre-commit"]).toHaveLength(0);
       expect(config["pre-push"]).toHaveLength(1);
-      expect(config["pre-push"][0].name).toBe("readmeguard");
     });
 
     it("exits with error when hook not found", () => {
@@ -206,7 +241,9 @@ describe("CLI", () => {
       const config: HookRunnerConfig = {
         "pre-push": [
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
-          { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
+        ],
+        "pre-commit": [
+          { name: "readmeguard", command: "readmeguard run", order: 1, enabled: true },
         ],
       };
       writeFileSync(
@@ -220,13 +257,12 @@ describe("CLI", () => {
       rmSync(tmpCwd, { recursive: true, force: true });
     });
 
-    it("lists hooks in order", () => {
+    it("lists hooks grouped by type", () => {
       const output = runCliWithCwd("list", tmpCwd, { HOME: tmpHome });
-      expect(output).toContain("1. pushguard");
-      expect(output).toContain("pushguard run");
-      expect(output).toContain("(enabled)");
-      expect(output).toContain("2. readmeguard");
-      expect(output).toContain("readmeguard run");
+      expect(output).toContain("pre-push:");
+      expect(output).toContain("pushguard");
+      expect(output).toContain("pre-commit:");
+      expect(output).toContain("readmeguard");
     });
 
     it("shows message when no hooks configured", () => {
@@ -251,7 +287,9 @@ describe("CLI", () => {
       const config: HookRunnerConfig = {
         "pre-push": [
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
-          { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
+        ],
+        "pre-commit": [
+          { name: "readmeguard", command: "readmeguard run", order: 1, enabled: true },
         ],
       };
       writeFileSync(
@@ -302,6 +340,7 @@ describe("CLI", () => {
           { name: "pass1", command: "true", order: 1, enabled: true },
           { name: "pass2", command: "true", order: 2, enabled: true },
         ],
+        "pre-commit": [],
       };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
@@ -317,6 +356,7 @@ describe("CLI", () => {
         "pre-push": [
           { name: "fail", command: "false", order: 1, enabled: true },
         ],
+        "pre-commit": [],
       };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
@@ -329,7 +369,7 @@ describe("CLI", () => {
     });
 
     it("exits 0 when hook type has no hooks", () => {
-      const config: HookRunnerConfig = { "pre-push": [] };
+      const config: HookRunnerConfig = { "pre-push": [], "pre-commit": [] };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
         JSON.stringify(config, null, 2) + "\n",
@@ -337,6 +377,22 @@ describe("CLI", () => {
 
       // Should not throw
       runCliWithCwd("exec pre-push", tmpCwd, { HOME: tmpHome });
+    });
+
+    it("executes pre-commit hooks", () => {
+      const config: HookRunnerConfig = {
+        "pre-push": [],
+        "pre-commit": [
+          { name: "pass", command: "true", order: 1, enabled: true },
+        ],
+      };
+      writeFileSync(
+        join(tmpHome, ".hookrunner", "config.json"),
+        JSON.stringify(config, null, 2) + "\n",
+      );
+
+      // Should not throw
+      runCliWithCwd("exec pre-commit", tmpCwd, { HOME: tmpHome });
     });
   });
 });

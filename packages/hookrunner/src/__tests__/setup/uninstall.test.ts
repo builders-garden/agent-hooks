@@ -59,6 +59,7 @@ describe("uninstall — global mode", () => {
     const hooksDir = join(fakeHome, ".hookrunner", "hooks");
     mkdirSync(hooksDir, { recursive: true });
     writeFileSync(join(hooksDir, "pre-push"), "#!/bin/sh\n");
+    writeFileSync(join(hooksDir, "pre-commit"), "#!/bin/sh\n");
 
     uninstall({ husky: false });
 
@@ -89,17 +90,19 @@ describe("uninstall — husky mode", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("removes .husky/pre-push", () => {
+  it("removes all hook files from .husky/", () => {
     const huskyDir = join(tmpDir, ".husky");
     mkdirSync(huskyDir, { recursive: true });
     writeFileSync(join(huskyDir, "pre-push"), "#!/bin/sh\n");
+    writeFileSync(join(huskyDir, "pre-commit"), "#!/bin/sh\n");
 
     uninstall({ husky: true });
 
     expect(existsSync(join(huskyDir, "pre-push"))).toBe(false);
+    expect(existsSync(join(huskyDir, "pre-commit"))).toBe(false);
   });
 
-  it("does not throw if .husky/pre-push doesn't exist", () => {
+  it("does not throw if hook files don't exist", () => {
     expect(() => uninstall({ husky: true })).not.toThrow();
   });
 

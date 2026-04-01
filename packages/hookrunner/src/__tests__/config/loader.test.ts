@@ -41,34 +41,42 @@ function makeHook(overrides: Partial<HookEntry> = {}): HookEntry {
   };
 }
 
+function makeConfig(overrides: Partial<HookRunnerConfig> = {}): HookRunnerConfig {
+  return {
+    "pre-push": [],
+    "pre-commit": [],
+    ...overrides,
+  };
+}
+
 describe("mergeConfigs", () => {
   it("returns global config when no repo config exists", () => {
-    const global: HookRunnerConfig = {
+    const global = makeConfig({
       "pre-push": [makeHook({ name: "lint", order: 1 })],
-    };
+    });
     const result = mergeConfigs(global, null);
     expect(result).toEqual(global);
   });
 
   it("repo hooks override global hooks with same name", () => {
-    const global: HookRunnerConfig = {
+    const global = makeConfig({
       "pre-push": [makeHook({ name: "lint", command: "global-lint", order: 1 })],
-    };
-    const repo: HookRunnerConfig = {
+    });
+    const repo = makeConfig({
       "pre-push": [makeHook({ name: "lint", command: "repo-lint", order: 2 })],
-    };
+    });
     const result = mergeConfigs(global, repo);
     expect(result["pre-push"]).toHaveLength(1);
     expect(result["pre-push"][0].command).toBe("repo-lint");
   });
 
   it("includes global-only hooks alongside repo hooks", () => {
-    const global: HookRunnerConfig = {
+    const global = makeConfig({
       "pre-push": [makeHook({ name: "global-only", command: "g", order: 5 })],
-    };
-    const repo: HookRunnerConfig = {
+    });
+    const repo = makeConfig({
       "pre-push": [makeHook({ name: "repo-only", command: "r", order: 3 })],
-    };
+    });
     const result = mergeConfigs(global, repo);
     expect(result["pre-push"]).toHaveLength(2);
     const names = result["pre-push"].map((h) => h.name);
@@ -77,15 +85,26 @@ describe("mergeConfigs", () => {
   });
 
   it("sorts merged hooks by order", () => {
-    const global: HookRunnerConfig = {
+    const global = makeConfig({
       "pre-push": [makeHook({ name: "second", order: 20 })],
-    };
-    const repo: HookRunnerConfig = {
+    });
+    const repo = makeConfig({
       "pre-push": [makeHook({ name: "first", order: 5 })],
-    };
+    });
     const result = mergeConfigs(global, repo);
     expect(result["pre-push"][0].name).toBe("first");
     expect(result["pre-push"][1].name).toBe("second");
+  });
+
+  it("merges pre-commit hooks from both sources", () => {
+    const global = makeConfig({
+      "pre-commit": [makeHook({ name: "readmeguard", command: "readmeguard run", order: 1 })],
+    });
+    const repo = makeConfig({
+      "pre-commit": [makeHook({ name: "lint", command: "lint run", order: 2 })],
+    });
+    const result = mergeConfigs(global, repo);
+    expect(result["pre-commit"]).toHaveLength(2);
   });
 });
 
@@ -109,13 +128,13 @@ describe("loadConfig", () => {
 
   it("returns default config when no config files exist", () => {
     const result = loadConfig();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "pre-commit": [] });
   });
 
   it("loads from .hookrunner.json in repo root", () => {
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "from-repo", order: 1 })],
-    };
+    });
     writeFileSync(join(tmpDir, ".hookrunner.json"), JSON.stringify(config));
 
     const result = loadConfig();
@@ -124,9 +143,9 @@ describe("loadConfig", () => {
   });
 
   it("loads from package.json hookrunner key", () => {
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "from-pkg", order: 1 })],
-    };
+    });
     writeFileSync(
       join(tmpDir, "package.json"),
       JSON.stringify({ name: "test", hookrunner: config }),
@@ -135,6 +154,18 @@ describe("loadConfig", () => {
     const result = loadConfig();
     expect(result["pre-push"]).toHaveLength(1);
     expect(result["pre-push"][0].name).toBe("from-pkg");
+  });
+
+  it("normalizes legacy config missing pre-commit key", () => {
+    // Simulate a config file from before pre-commit support
+    writeFileSync(
+      join(tmpDir, ".hookrunner.json"),
+      JSON.stringify({ "pre-push": [makeHook({ name: "old-hook", order: 1 })] }),
+    );
+
+    const result = loadConfig();
+    expect(result["pre-push"]).toHaveLength(1);
+    expect(result["pre-commit"]).toEqual([]);
   });
 });
 
@@ -153,15 +184,15 @@ describe("loadGlobalConfigOnly", () => {
 
   it("returns default when file doesn't exist", () => {
     const result = loadGlobalConfigOnly();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "pre-commit": [] });
   });
 
   it("returns parsed config when file exists", () => {
     const dir = join(tmpDir, ".hookrunner");
     mkdirSync(dir, { recursive: true });
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "global-hook", order: 1 })],
-    };
+    });
     writeFileSync(join(dir, "config.json"), JSON.stringify(config));
 
     const result = loadGlobalConfigOnly();
@@ -185,13 +216,13 @@ describe("loadRepoConfig", () => {
 
   it("returns default when file doesn't exist", () => {
     const result = loadRepoConfig();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "pre-commit": [] });
   });
 
   it("returns parsed config when file exists", () => {
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "repo-hook", order: 1 })],
-    };
+    });
     writeFileSync(join(tmpDir, ".hookrunner.json"), JSON.stringify(config));
     const result = loadRepoConfig();
     expect(result["pre-push"]).toHaveLength(1);
@@ -216,9 +247,9 @@ describe("saveGlobalConfig", () => {
     const dir = join(tmpDir, ".hookrunner");
     mkdirSync(dir, { recursive: true });
 
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "saved-hook", order: 1 })],
-    };
+    });
     saveGlobalConfig(config);
 
     const filePath = join(dir, "config.json");
@@ -228,9 +259,9 @@ describe("saveGlobalConfig", () => {
   });
 
   it("creates directory if it doesn't exist", () => {
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "new-dir-hook", order: 1 })],
-    };
+    });
     saveGlobalConfig(config);
 
     const filePath = join(tmpDir, ".hookrunner", "config.json");
@@ -254,9 +285,9 @@ describe("saveRepoConfig", () => {
   });
 
   it("writes config to correct path", () => {
-    const config: HookRunnerConfig = {
+    const config = makeConfig({
       "pre-push": [makeHook({ name: "repo-saved", order: 1 })],
-    };
+    });
     saveRepoConfig(config);
 
     const filePath = join(tmpDir, ".hookrunner.json");

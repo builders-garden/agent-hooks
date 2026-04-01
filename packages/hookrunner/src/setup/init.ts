@@ -6,13 +6,16 @@ import {
   DEFAULT_CONFIG,
   GLOBAL_CONFIG_DIR,
   GLOBAL_CONFIG_FILE,
+  SUPPORTED_HOOK_TYPES,
 } from "../types.js";
 
 export interface InitOptions {
   husky: boolean;
 }
 
-const HOOK_SCRIPT = `#!/bin/sh\nhookrunner exec pre-push "$@"\n`;
+function hookScript(hookType: string): string {
+  return `#!/bin/sh\nhookrunner exec ${hookType} "$@"\n`;
+}
 
 export function init(options: InitOptions): void {
   const home = homedir();
@@ -20,27 +23,31 @@ export function init(options: InitOptions): void {
   const configPath = join(configDir, GLOBAL_CONFIG_FILE);
 
   if (options.husky) {
-    // Husky mode: write .husky/pre-push in the current working directory
+    // Husky mode: write hook scripts in .husky/
     const huskyDir = join(process.cwd(), ".husky");
     if (!existsSync(huskyDir)) {
       mkdirSync(huskyDir, { recursive: true });
     }
-    const hookPath = join(huskyDir, "pre-push");
-    writeFileSync(hookPath, HOOK_SCRIPT, { mode: 0o755 });
+    for (const hookType of SUPPORTED_HOOK_TYPES) {
+      const hookPath = join(huskyDir, hookType);
+      writeFileSync(hookPath, hookScript(hookType), { mode: 0o755 });
+    }
   } else {
-    // Global mode: create ~/.hookrunner/hooks/pre-push and set core.hooksPath
+    // Global mode: create ~/.hookrunner/hooks/<type> for each type and set core.hooksPath
     const hooksDir = join(configDir, "hooks");
     if (!existsSync(hooksDir)) {
       mkdirSync(hooksDir, { recursive: true });
     }
-    const hookPath = join(hooksDir, "pre-push");
-    writeFileSync(hookPath, HOOK_SCRIPT, { mode: 0o755 });
-    chmodSync(hookPath, 0o755);
+    for (const hookType of SUPPORTED_HOOK_TYPES) {
+      const hookPath = join(hooksDir, hookType);
+      writeFileSync(hookPath, hookScript(hookType), { mode: 0o755 });
+      chmodSync(hookPath, 0o755);
+    }
 
     execSync(`git config --global core.hooksPath ${hooksDir}`);
   }
 
-  // Create config.json with empty pre-push array if it doesn't exist
+  // Create config.json with default config if it doesn't exist
   if (!existsSync(configPath)) {
     if (!existsSync(configDir)) {
       mkdirSync(configDir, { recursive: true });

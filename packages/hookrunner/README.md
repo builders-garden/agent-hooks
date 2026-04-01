@@ -1,6 +1,11 @@
 # @agent-automation/hookrunner
 
-Git hook orchestrator that manages multiple pre-push hooks. Define hooks globally or per-repo, control execution order, and enable/disable individual hooks without editing git config.
+Git hook orchestrator that manages multiple git hooks. Define hooks globally or per-repo, control execution order, and enable/disable individual hooks without editing git config.
+
+## Supported Hook Types
+
+- `pre-push` (default)
+- `pre-commit`
 
 ## Prerequisites
 
@@ -21,7 +26,7 @@ npm install -g @agent-automation/hookrunner
 hookrunner init
 ```
 
-Installs a `pre-push` hook via Git's `core.hooksPath` mechanism. Hooks are stored in `~/.hookrunner/hooks/`.
+Installs hook scripts for all supported types via Git's `core.hooksPath` mechanism. Hooks are stored in `~/.hookrunner/hooks/`.
 
 ### Husky-style
 
@@ -29,7 +34,7 @@ Installs a `pre-push` hook via Git's `core.hooksPath` mechanism. Hooks are store
 hookrunner init --husky
 ```
 
-Installs a `pre-push` hook in the `.husky/` directory of the current repository.
+Installs hook scripts for all supported types in the `.husky/` directory of the current repository.
 
 ## CLI Usage
 
@@ -37,11 +42,12 @@ Installs a `pre-push` hook in the `.husky/` directory of the current repository.
 
 ```bash
 hookrunner add pushguard --command "pushguard run"
-hookrunner add readmeguard --command "readmeguard check" --order 2
-hookrunner add my-hook --command "my-hook run" --local
+hookrunner add readmeguard --command "readmeguard check" --type pre-commit
+hookrunner add my-hook --command "my-hook run" --order 2 --local
 ```
 
 - `--command <cmd>` (required) -- command to execute
+- `--type <hook-type>` -- hook type (`pre-push` or `pre-commit`, defaults to `pre-push`)
 - `--order <n>` -- execution order (defaults to next available)
 - `--local` -- save to repo-level config (`.hookrunner.json`) instead of global
 
@@ -49,6 +55,7 @@ hookrunner add my-hook --command "my-hook run" --local
 
 ```bash
 hookrunner remove pushguard
+hookrunner remove readmeguard --type pre-commit
 hookrunner remove my-hook --local
 ```
 
@@ -58,22 +65,39 @@ hookrunner remove my-hook --local
 hookrunner list
 ```
 
-Shows all configured hooks (merged global + repo) sorted by execution order.
+Shows all configured hooks (merged global + repo) grouped by hook type and sorted by execution order.
 
 ### Reorder a hook
 
 ```bash
 hookrunner reorder pushguard --order 5
-hookrunner reorder my-hook --order 1 --local
+hookrunner reorder my-hook --order 1 --type pre-commit --local
+```
+
+### Enable / disable a hook
+
+```bash
+hookrunner enable my-hook
+hookrunner disable my-hook --type pre-commit
 ```
 
 ### Execute hooks (called by git)
 
 ```bash
 hookrunner exec pre-push
+hookrunner exec pre-commit
 ```
 
-This is invoked automatically by the installed git hook. It reads stdin and passes positional arguments through to each hook command.
+This is invoked automatically by the installed git hooks. It reads stdin and passes positional arguments through to each hook command.
+
+### Run a single hook
+
+```bash
+hookrunner run-one pushguard
+hookrunner run-one readmeguard --type pre-commit
+```
+
+Useful for testing individual hooks.
 
 ## Uninstall
 
@@ -82,7 +106,7 @@ hookrunner uninstall
 hookrunner uninstall --husky
 ```
 
-Removes the installed git hooks.
+Removes all installed git hook scripts.
 
 ## Configuration
 
@@ -103,11 +127,13 @@ Repo-level hooks are merged with global hooks. If both define a hook with the sa
       "command": "pushguard run",
       "order": 1,
       "enabled": true
-    },
+    }
+  ],
+  "pre-commit": [
     {
       "name": "readmeguard",
       "command": "readmeguard check",
-      "order": 2,
+      "order": 1,
       "enabled": true
     }
   ]
@@ -128,10 +154,10 @@ Repo-level hooks are merged with global hooks. If both define a hook with the sa
 ```bash
 hookrunner init
 hookrunner add pushguard --command "pushguard run" --order 1
-hookrunner add readmeguard --command "readmeguard check" --order 2
+hookrunner add readmeguard --command "readmeguard check" --type pre-commit --order 1
 ```
 
-On `git push`, hookrunner runs pushguard first, then readmeguard. If pushguard fails, readmeguard is skipped and the push is blocked.
+On `git push`, hookrunner runs pushguard. On `git commit`, hookrunner runs readmeguard. If any hook fails, the git operation is blocked.
 
 ## Skipping hooks
 

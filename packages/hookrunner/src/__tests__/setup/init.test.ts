@@ -31,8 +31,6 @@ vi.mock("node:child_process", () => ({
 // Import after mocks
 import { init } from "../../setup/init.js";
 
-const HOOK_SCRIPT = `#!/bin/sh\nhookrunner exec pre-push "$@"\n`;
-
 describe("init — global mode", () => {
   let tmpDir: string;
   let fakeHome: string;
@@ -51,16 +49,20 @@ describe("init — global mode", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates ~/.hookrunner/hooks/pre-push with correct content and executable permissions", () => {
+  it("creates hook scripts for all supported types with correct content and executable permissions", () => {
     init({ husky: false });
 
-    const hookPath = join(fakeHome, ".hookrunner", "hooks", "pre-push");
-    expect(existsSync(hookPath)).toBe(true);
-    expect(readFileSync(hookPath, "utf-8")).toBe(HOOK_SCRIPT);
+    for (const hookType of ["pre-push", "pre-commit"]) {
+      const hookPath = join(fakeHome, ".hookrunner", "hooks", hookType);
+      expect(existsSync(hookPath)).toBe(true);
+      expect(readFileSync(hookPath, "utf-8")).toBe(
+        `#!/bin/sh\nhookrunner exec ${hookType} "$@"\n`,
+      );
 
-    const stat = statSync(hookPath);
-    // Check executable bit (owner execute = 0o100)
-    expect(stat.mode & 0o111).not.toBe(0);
+      const stat = statSync(hookPath);
+      // Check executable bit (owner execute = 0o100)
+      expect(stat.mode & 0o111).not.toBe(0);
+    }
   });
 
   it("sets core.hooksPath via git config", () => {
@@ -78,13 +80,13 @@ describe("init — global mode", () => {
     const configPath = join(fakeHome, ".hookrunner", "config.json");
     expect(existsSync(configPath)).toBe(true);
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config).toEqual({ "pre-push": [] });
+    expect(config).toEqual({ "pre-push": [], "pre-commit": [] });
   });
 
   it("does not overwrite existing config.json", () => {
     const configDir = join(fakeHome, ".hookrunner");
     mkdirSync(configDir, { recursive: true });
-    const existingConfig = { "pre-push": [{ name: "existing", command: "echo hi", order: 1, enabled: true }] };
+    const existingConfig = { "pre-push": [{ name: "existing", command: "echo hi", order: 1, enabled: true }], "pre-commit": [] };
     writeFileSync(join(configDir, "config.json"), JSON.stringify(existingConfig));
 
     init({ husky: false });
@@ -115,12 +117,16 @@ describe("init — husky mode", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates .husky/pre-push with correct content", () => {
+  it("creates hook scripts for all supported types in .husky/", () => {
     init({ husky: true });
 
-    const hookPath = join(tmpDir, ".husky", "pre-push");
-    expect(existsSync(hookPath)).toBe(true);
-    expect(readFileSync(hookPath, "utf-8")).toBe(HOOK_SCRIPT);
+    for (const hookType of ["pre-push", "pre-commit"]) {
+      const hookPath = join(tmpDir, ".husky", hookType);
+      expect(existsSync(hookPath)).toBe(true);
+      expect(readFileSync(hookPath, "utf-8")).toBe(
+        `#!/bin/sh\nhookrunner exec ${hookType} "$@"\n`,
+      );
+    }
   });
 
   it("creates .husky/ directory if it doesn't exist", () => {
@@ -138,7 +144,7 @@ describe("init — husky mode", () => {
     const configPath = join(fakeHome, ".hookrunner", "config.json");
     expect(existsSync(configPath)).toBe(true);
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config).toEqual({ "pre-push": [] });
+    expect(config).toEqual({ "pre-push": [], "pre-commit": [] });
   });
 
   it("does not call git config for hooksPath in husky mode", () => {

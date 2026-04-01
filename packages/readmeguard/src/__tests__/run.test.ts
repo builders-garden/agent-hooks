@@ -180,42 +180,49 @@ describe("run", () => {
       expect(await run()).toBe(0);
     });
 
-    it("auto mode: writes README, commits, returns 1", async () => {
+    it("auto mode: writes README, stages it, returns 0", async () => {
       setupStandardMocks(makeConfig({ mode: "auto" }));
       mockAnalyze.mockReturnValue({ decision: "UPDATE", updatedReadme: "# New README" });
 
       const result = await run();
 
-      expect(result).toBe(1);
+      expect(result).toBe(0);
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("packages/hookrunner/README.md"),
         "# New README",
       );
+      // Should stage the README
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
-      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["commit", "-m", "docs: update README(s)", "--", "packages/hookrunner/README.md"]);
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      // Should NOT commit or push (pre-commit hook — git handles the commit)
+      expect(mockExecFileSync).not.toHaveBeenCalledWith(
         "git",
-        ["push", "--no-verify"],
-        expect.objectContaining({ stdio: "inherit" }),
+        expect.arrayContaining(["commit"]),
+      );
+      expect(mockExecFileSync).not.toHaveBeenCalledWith(
+        "git",
+        expect.arrayContaining(["push"]),
+        expect.anything(),
       );
     });
 
-    it("interactive mode non-TTY: applies updates automatically and pushes", async () => {
+    it("interactive mode non-TTY: applies updates automatically and stages", async () => {
       setupStandardMocks(makeConfig({ mode: "interactive" }));
       mockAnalyze.mockReturnValue({ decision: "UPDATE", updatedReadme: "# New README" });
       mockIsTTY.mockReturnValue(false);
 
       const result = await run();
 
-      expect(result).toBe(1);
+      expect(result).toBe(0);
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("packages/hookrunner/README.md"),
         "# New README",
       );
-      expect(mockExecFileSync).toHaveBeenCalledWith(
+      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
+      // No push
+      expect(mockExecFileSync).not.toHaveBeenCalledWith(
         "git",
-        ["push", "--no-verify"],
-        expect.objectContaining({ stdio: "inherit" }),
+        expect.arrayContaining(["push"]),
+        expect.anything(),
       );
     });
 
@@ -228,17 +235,13 @@ describe("run", () => {
 
       const result = await run();
 
-      expect(result).toBe(1);
+      expect(result).toBe(0);
       expect(mockShowDiff).toHaveBeenCalledWith("# Old README", "# New README");
       expect(mockWriteFileSync).toHaveBeenCalledWith(
         expect.stringContaining("packages/hookrunner/README.md"),
         "# New README",
       );
-      expect(mockExecFileSync).toHaveBeenCalledWith(
-        "git",
-        ["push", "--no-verify"],
-        expect.objectContaining({ stdio: "inherit" }),
-      );
+      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
     });
 
     it("interactive mode with TTY: returns 0 when user chooses n for all", async () => {
@@ -278,7 +281,7 @@ describe("run", () => {
       const result = await run();
 
       expect(mockAnalyze).toHaveBeenCalledTimes(2);
-      expect(result).toBe(1);
+      expect(result).toBe(0);
       // Only root README should be written (hookrunner got NO_UPDATE)
       expect(mockWriteFileSync).toHaveBeenCalledTimes(1);
       expect(mockWriteFileSync).toHaveBeenCalledWith(

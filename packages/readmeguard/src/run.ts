@@ -156,29 +156,19 @@ export async function run(options: RunOptions = {}): Promise<number> {
     return 0;
   }
 
-  // Stage and commit the README updates
+  // Stage the README updates so they're included in the current commit.
+  // As a pre-commit hook, we just add to the index — git will include
+  // these in the commit that's about to be created.
   for (const p of pathsToCommit) {
     execFileSync("git", ["add", p]);
   }
-  execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...pathsToCommit]);
 
-  // Auto-push the README commit with --no-verify to skip hooks (prevents recursion)
-  // This eliminates the "push again" requirement — critical for AI agents
-  try {
-    execFileSync("git", ["push", "--no-verify"], {
-      stdio: "inherit",
-      env: process.env,
-    });
-    process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
-  } catch {
-    showWarning("README committed but push failed. Run `git push` to push the update.");
-  }
+  process.stderr.write(
+    `readmeguard: README(s) updated and staged: ${pathsToCommit.join(", ")}\n`,
+  );
 
-  // Block the original push since we already pushed everything including the README update.
-  // Git's pre-push computes the payload before hooks run, so the original push would not
-  // include our new commit. By pushing with --no-verify above and returning 1 here,
-  // the user's code + README update land on the remote in one seamless operation.
-  return 1;
+  // Return 0 to let the commit proceed with the README updates included.
+  return 0;
 }
 
 function matchBranch(branch: string, pattern: string): boolean {

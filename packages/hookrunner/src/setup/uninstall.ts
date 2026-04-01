@@ -10,10 +10,13 @@ export interface UninstallOptions {
 
 export function uninstall(options: UninstallOptions): void {
   if (options.husky) {
-    // Husky mode: remove .husky/pre-push
-    const huskyPrePush = join(process.cwd(), ".husky", "pre-push");
-    if (existsSync(huskyPrePush)) {
-      unlinkSync(huskyPrePush);
+    // Husky mode: remove all hook files from .husky/
+    const huskyDir = join(process.cwd(), ".husky");
+    for (const hookType of ["pre-push", "pre-commit"]) {
+      const hookPath = join(huskyDir, hookType);
+      if (existsSync(hookPath)) {
+        unlinkSync(hookPath);
+      }
     }
   } else {
     // Global mode: unset core.hooksPath and remove hooks directory

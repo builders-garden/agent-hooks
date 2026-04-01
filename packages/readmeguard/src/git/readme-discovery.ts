@@ -17,14 +17,16 @@ export function discoverReadmes(): string[] {
 }
 
 /**
- * Get list of files changed in unpushed commits.
+ * Get list of files changed since upstream, including staged changes.
+ * Uses `git diff --cached` against upstream to capture both committed
+ * (unpushed) and staged changes in one pass.
  * Returns paths relative to the repo root.
  */
 export function getChangedFiles(upstream: string, exclude: string[]): string[] {
   const pathspecs = ["--", ".", ...exclude.map((p) => `:(exclude)${p}`)];
   const output = execFileSync(
     "git",
-    ["diff", "--name-only", `${upstream}..HEAD`, ...pathspecs],
+    ["diff", "--cached", "--name-only", upstream, ...pathspecs],
     { encoding: "utf-8" },
   ).trim();
 
@@ -89,6 +91,7 @@ export function groupFilesByReadme(
 
 /**
  * Get the diff for a specific set of file paths.
+ * Uses `git diff --cached` against upstream to include staged changes.
  */
 export function getDiffForFiles(
   upstream: string,
@@ -99,7 +102,7 @@ export function getDiffForFiles(
 
   let diff = execFileSync(
     "git",
-    ["diff", `${upstream}..HEAD`, "--", ...files],
+    ["diff", "--cached", upstream, "--", ...files],
     { encoding: "utf-8", maxBuffer: Math.max(maxDiffSize * 2, 1024 * 1024) },
   );
 

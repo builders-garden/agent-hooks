@@ -1,16 +1,16 @@
 # @agent-automation/readmeguard
 
-Pre-push hook that uses AI to selectively update your READMEs when substantial changes are detected. Supports monorepos with multiple READMEs and scoped analysis. Uses Claude Code or Codex CLI as AI providers.
+Pre-commit hook that uses AI to selectively update your READMEs when substantial changes are detected. Supports monorepos with multiple READMEs and scoped analysis. Uses Claude Code or Codex CLI as AI providers.
 
 ## How it works
 
-1. You run `git push`.
+1. You run `git commit`.
 2. readmeguard detects the upstream branch (or falls back to `origin/main`).
 3. It discovers all `README.md` files tracked by git in the repository.
-4. It diffs your unpushed commits against the upstream and groups changed files by their closest README.
+4. It diffs your staged and unpushed changes against the upstream and groups changed files by their closest README.
 5. An AI provider analyzes each scoped diff alongside the corresponding README.
 6. If any README needs updating, it either applies the changes automatically or prompts you to review each one individually (depending on mode).
-7. readmeguard commits the README updates and pushes them automatically (with `--no-verify` to avoid hook recursion), then blocks the original push since the updated refs are already on the remote.
+7. readmeguard stages the README updates so they are included in the commit that's about to be created — no extra commits or pushes needed.
 
 ## Prerequisites
 
@@ -32,7 +32,7 @@ npm install -g @agent-automation/readmeguard
 readmeguard init
 ```
 
-Installs a `pre-push` hook directly in `.git/hooks/`.
+Installs a `pre-commit` hook directly in `.git/hooks/`.
 
 ### With Husky
 
@@ -40,15 +40,15 @@ Installs a `pre-push` hook directly in `.git/hooks/`.
 readmeguard init --husky
 ```
 
-Installs a `pre-push` hook in the `.husky/` directory of the current repository.
+Installs a `pre-commit` hook in the `.husky/` directory of the current repository.
 
 ### With hookrunner
 
 ```bash
-hookrunner add readmeguard --command "readmeguard run"
+hookrunner add readmeguard --command "readmeguard run" --type pre-commit
 ```
 
-Registers readmeguard as a managed hook under hookrunner.
+Registers readmeguard as a managed pre-commit hook under hookrunner.
 
 ## Monorepo support
 
@@ -100,7 +100,7 @@ readmeguard loads configuration from multiple sources with the following priorit
 | `exclude`      | string[] | `["*.lock", "*.min.js", "*.map", "dist/**", "node_modules/**"]` | Glob patterns to exclude from the diff               |
 | `skipBranches` | string[] | `[]`                                                 | Branch patterns to skip (supports trailing `*` wildcard) |
 | `timeout`      | number   | `300000`                                             | AI provider timeout in milliseconds                  |
-| `failOnError`  | boolean  | `false`                                              | Block push if analysis fails                         |
+| `failOnError`  | boolean  | `false`                                              | Block commit if analysis fails                       |
 | `customPrompt` | string   | `""`                                                 | Additional instructions appended to the AI prompt    |
 | `maxDiffSize`  | number   | `100000`                                             | Maximum diff size in bytes (truncated if exceeded)   |
 
@@ -117,7 +117,7 @@ readmeguard loads configuration from multiple sources with the following priorit
 
 ### `readmeguard init`
 
-Install the pre-push hook.
+Install the pre-commit hook.
 
 ```bash
 readmeguard init          # standalone (.git/hooks)
@@ -126,7 +126,7 @@ readmeguard init --husky  # Husky integration
 
 ### `readmeguard uninstall`
 
-Remove the pre-push hook.
+Remove the pre-commit hook.
 
 ```bash
 readmeguard uninstall          # standalone
@@ -143,7 +143,7 @@ readmeguard run
 
 ### `readmeguard update`
 
-Run analysis manually in interactive mode, ignoring `skipBranches`. Useful for updating the README on-demand without pushing.
+Run analysis manually in interactive mode, ignoring `skipBranches`. Useful for updating the README on-demand without committing.
 
 ```bash
 readmeguard update
@@ -153,11 +153,9 @@ readmeguard update
 
 When running in interactive mode without a TTY (e.g., in CI pipelines or AI agent workflows), readmeguard automatically falls back to auto mode — applying all updates without prompting. This makes readmeguard agent-friendly out of the box.
 
-## Auto-push
+## Pre-commit workflow
 
-After committing README updates, readmeguard automatically pushes the changes to the remote using `--no-verify` (to prevent hook recursion). The original `git push` is then blocked since the updated refs are already on the remote. This eliminates the previous "push again" requirement, making the workflow seamless — especially for automated and agent-driven pipelines.
-
-If the auto-push fails, readmeguard will warn you and you can run `git push` manually.
+As a pre-commit hook, readmeguard stages README updates into the index so they are included in the commit being created. There are no separate commits or pushes — your code changes and README updates land in a single commit. This is simpler and more predictable than the previous pre-push approach, and works seamlessly with both manual and agent-driven workflows.
 
 ## Programmatic API
 
@@ -198,7 +196,7 @@ readmeguard: 1 README(s) to update: packages/foo/README.md
 
 Apply this update? (y)es / (n)o / (e)dit: y
 
-readmeguard: README(s) updated, committed, and pushed.
+readmeguard: README(s) updated and staged: packages/foo/README.md
 ```
 
 When no update is needed:
@@ -209,10 +207,10 @@ readmeguard: No README updates needed.
 
 ## Skip
 
-To push without running readmeguard:
+To commit without running readmeguard:
 
 ```bash
-READMEGUARD_SKIP=1 git push
+READMEGUARD_SKIP=1 git commit
 ```
 
 ## Uninstall

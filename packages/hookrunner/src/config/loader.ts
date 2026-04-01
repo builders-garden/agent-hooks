@@ -8,7 +8,19 @@ import {
   GLOBAL_CONFIG_DIR,
   GLOBAL_CONFIG_FILE,
   REPO_CONFIG_FILE,
+  SUPPORTED_HOOK_TYPES,
 } from "../types.js";
+
+/** Ensure a loaded config has all supported hook type keys. */
+function normalizeConfig(raw: Partial<HookRunnerConfig>): HookRunnerConfig {
+  const config = { ...DEFAULT_CONFIG };
+  for (const hookType of SUPPORTED_HOOK_TYPES) {
+    if (Array.isArray(raw[hookType])) {
+      config[hookType] = raw[hookType];
+    }
+  }
+  return config;
+}
 
 export function mergeConfigs(
   global: HookRunnerConfig,
@@ -16,12 +28,19 @@ export function mergeConfigs(
 ): HookRunnerConfig {
   if (!repo) return global;
 
-  const repoNames = new Set(repo["pre-push"].map((h) => h.name));
-  const globalOnly = global["pre-push"].filter((h) => !repoNames.has(h.name));
-  const merged = [...repo["pre-push"], ...globalOnly];
-  merged.sort((a, b) => a.order - b.order);
+  const merged: HookRunnerConfig = { ...DEFAULT_CONFIG };
 
-  return { "pre-push": merged };
+  for (const hookType of SUPPORTED_HOOK_TYPES) {
+    const repoHooks = repo[hookType] ?? [];
+    const globalHooks = global[hookType] ?? [];
+    const repoNames = new Set(repoHooks.map((h) => h.name));
+    const globalOnly = globalHooks.filter((h) => !repoNames.has(h.name));
+    const combined = [...repoHooks, ...globalOnly];
+    combined.sort((a, b) => a.order - b.order);
+    merged[hookType] = combined;
+  }
+
+  return merged;
 }
 
 export function loadConfig(): HookRunnerConfig {
@@ -34,16 +53,16 @@ export function loadConfig(): HookRunnerConfig {
 
   // Load global
   if (existsSync(globalPath)) {
-    globalConfig = JSON.parse(readFileSync(globalPath, "utf-8"));
+    globalConfig = normalizeConfig(JSON.parse(readFileSync(globalPath, "utf-8")));
   }
 
   // Load repo (.hookrunner.json takes priority over package.json)
   if (existsSync(repoPath)) {
-    repoConfig = JSON.parse(readFileSync(repoPath, "utf-8"));
+    repoConfig = normalizeConfig(JSON.parse(readFileSync(repoPath, "utf-8")));
   } else if (existsSync(pkgPath)) {
     const pkg = JSON.parse(readFileSync(pkgPath, "utf-8"));
     if (pkg.hookrunner) {
-      repoConfig = pkg.hookrunner;
+      repoConfig = normalizeConfig(pkg.hookrunner);
     }
   }
 
@@ -55,17 +74,17 @@ export function loadConfig(): HookRunnerConfig {
 export function loadGlobalConfigOnly(): HookRunnerConfig {
   const globalPath = join(homedir(), GLOBAL_CONFIG_DIR, GLOBAL_CONFIG_FILE);
   if (existsSync(globalPath)) {
-    return JSON.parse(readFileSync(globalPath, "utf-8"));
+    return normalizeConfig(JSON.parse(readFileSync(globalPath, "utf-8")));
   }
-  return { "pre-push": [] };
+  return { ...DEFAULT_CONFIG };
 }
 
 export function loadRepoConfig(): HookRunnerConfig {
   const repoPath = join(process.cwd(), REPO_CONFIG_FILE);
   if (existsSync(repoPath)) {
-    return JSON.parse(readFileSync(repoPath, "utf-8"));
+    return normalizeConfig(JSON.parse(readFileSync(repoPath, "utf-8")));
   }
-  return { "pre-push": [] };
+  return { ...DEFAULT_CONFIG };
 }
 
 export function saveGlobalConfig(config: HookRunnerConfig): void {
