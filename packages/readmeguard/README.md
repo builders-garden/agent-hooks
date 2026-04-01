@@ -26,13 +26,13 @@ npm install -g @agent-automation/readmeguard
 
 ## Setup
 
-### Standalone (core.hooksPath)
+### Standalone (.git/hooks)
 
 ```bash
 readmeguard init
 ```
 
-Installs a `pre-push` hook via Git's `core.hooksPath` mechanism.
+Installs a `pre-push` hook directly in `.git/hooks/`.
 
 ### With Husky
 
@@ -120,7 +120,7 @@ readmeguard loads configuration from multiple sources with the following priorit
 Install the pre-push hook.
 
 ```bash
-readmeguard init          # standalone (core.hooksPath)
+readmeguard init          # standalone (.git/hooks)
 readmeguard init --husky  # Husky integration
 ```
 
