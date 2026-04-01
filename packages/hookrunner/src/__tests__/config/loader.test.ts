@@ -109,7 +109,7 @@ describe("loadConfig", () => {
 
   it("returns default config when no config files exist", () => {
     const result = loadConfig();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "post-push": [] });
   });
 
   it("loads from .hookrunner.json in repo root", () => {
@@ -153,7 +153,7 @@ describe("loadGlobalConfigOnly", () => {
 
   it("returns default when file doesn't exist", () => {
     const result = loadGlobalConfigOnly();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "post-push": [] });
   });
 
   it("returns parsed config when file exists", () => {
@@ -185,7 +185,7 @@ describe("loadRepoConfig", () => {
 
   it("returns default when file doesn't exist", () => {
     const result = loadRepoConfig();
-    expect(result).toEqual({ "pre-push": [] });
+    expect(result).toEqual({ "pre-push": [], "post-push": [] });
   });
 
   it("returns parsed config when file exists", () => {

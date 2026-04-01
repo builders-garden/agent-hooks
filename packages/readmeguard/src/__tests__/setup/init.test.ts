@@ -49,14 +49,14 @@ describe("init", () => {
       stdio: "ignore",
     });
     expect(mockExecSync).toHaveBeenCalledWith(
-      'hookrunner add readmeguard --command "readmeguard run"',
+      'hookrunner add readmeguard --command "readmeguard run" --type post-push',
     );
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Registered with hookrunner.",
+      "readmeguard: Registered with hookrunner as post-push hook.",
     );
   });
 
-  it("installs standalone .git/hooks/pre-push when no hookrunner", async () => {
+  it("installs standalone .git/hooks/post-push when no hookrunner", async () => {
     // hookrunner --version fails
     mockExecSync.mockImplementation((cmd: string) => {
       if (cmd === "hookrunner --version") throw new Error("not found");
@@ -68,7 +68,7 @@ describe("init", () => {
 
     await init({});
 
-    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    const hookPath = join(tmpDir, ".git", "hooks", "post-push");
     expect(existsSync(hookPath)).toBe(true);
 
     const content = readFileSync(hookPath, "utf-8");
@@ -79,7 +79,7 @@ describe("init", () => {
     expect(stat.mode & 0o755).toBe(0o755);
 
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Installed .git/hooks/pre-push hook.",
+      "readmeguard: Installed .git/hooks/post-push hook.",
     );
   });
 
@@ -91,11 +91,11 @@ describe("init", () => {
     // Don't create .git/hooks - init should create it
     await init({});
 
-    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    const hookPath = join(tmpDir, ".git", "hooks", "post-push");
     expect(existsSync(hookPath)).toBe(true);
   });
 
-  it("warns about overwriting existing .git/hooks/pre-push", async () => {
+  it("warns about overwriting existing .git/hooks/post-push", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
@@ -103,23 +103,23 @@ describe("init", () => {
     // Create an existing hook
     const hooksDir = join(tmpDir, ".git", "hooks");
     mkdirSync(hooksDir, { recursive: true });
-    writeFileSync(join(hooksDir, "pre-push"), "#!/bin/sh\nold hook\n");
+    writeFileSync(join(hooksDir, "post-push"), "#!/bin/sh\nold hook\n");
 
     await init({});
 
     expect(console.warn).toHaveBeenCalledWith(
-      "readmeguard: Warning — existing .git/hooks/pre-push will be overwritten.",
+      "readmeguard: Warning — existing .git/hooks/post-push will be overwritten.",
     );
   });
 
-  it("installs .husky/pre-push in husky mode", async () => {
+  it("installs .husky/post-push in husky mode", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     await init({ husky: true });
 
-    const hookPath = join(tmpDir, ".husky", "pre-push");
+    const hookPath = join(tmpDir, ".husky", "post-push");
     expect(existsSync(hookPath)).toBe(true);
 
     const content = readFileSync(hookPath, "utf-8");
@@ -129,23 +129,23 @@ describe("init", () => {
     expect(stat.mode & 0o755).toBe(0o755);
 
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Installed .husky/pre-push hook.",
+      "readmeguard: Installed .husky/post-push hook.",
     );
   });
 
-  it("warns about overwriting existing .husky/pre-push", async () => {
+  it("warns about overwriting existing .husky/post-push", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     const huskyDir = join(tmpDir, ".husky");
     mkdirSync(huskyDir, { recursive: true });
-    writeFileSync(join(huskyDir, "pre-push"), "#!/bin/sh\nold hook\n");
+    writeFileSync(join(huskyDir, "post-push"), "#!/bin/sh\nold hook\n");
 
     await init({ husky: true });
 
     expect(console.warn).toHaveBeenCalledWith(
-      "readmeguard: Warning — existing .husky/pre-push will be overwritten.",
+      "readmeguard: Warning — existing .husky/post-push will be overwritten.",
     );
   });
 
@@ -156,7 +156,7 @@ describe("init", () => {
 
     await init({});
 
-    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    const hookPath = join(tmpDir, ".git", "hooks", "post-push");
     const content = readFileSync(hookPath, "utf-8");
     expect(content).toBe('#!/bin/sh\nreadmeguard run "$@"\n');
     expect(content).toMatch(/^#!\/bin\/sh\n/);

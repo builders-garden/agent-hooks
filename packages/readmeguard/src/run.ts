@@ -24,6 +24,28 @@ export interface RunOptions {
   ignoreSkipBranches?: boolean;
 }
 
+/**
+ * Get the ref range to analyze.
+ *
+ * As a post-push hook, we analyze what was just pushed.
+ * We use READMEGUARD_BASE_REF (set by the hook script or hookrunner)
+ * or fall back to HEAD~1..HEAD for manual runs.
+ *
+ * As a fallback for pre-push or manual mode, we diff against upstream.
+ */
+function getRefRange(): { base: string; head: string } | null {
+  // Check if base ref was passed via env (set by post-push hook)
+  const baseRef = process.env.READMEGUARD_BASE_REF;
+  if (baseRef) {
+    return { base: baseRef, head: "HEAD" };
+  }
+
+  // Fall back to upstream diff
+  const upstream = getUpstream();
+  if (!upstream) return null;
+  return { base: upstream, head: "HEAD" };
+}
+
 export async function run(options: RunOptions = {}): Promise<number> {
   const config = loadConfig();
 
@@ -44,9 +66,9 @@ export async function run(options: RunOptions = {}): Promise<number> {
     }
   }
 
-  // Find upstream ref
-  const upstream = getUpstream();
-  if (!upstream) {
+  // Get ref range to analyze
+  const refRange = getRefRange();
+  if (!refRange) {
     return 0;
   }
 
@@ -57,7 +79,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
   }
 
   // Get changed files and group by closest README
-  const changedFiles = getChangedFiles(upstream, config.exclude);
+  const changedFiles = getChangedFiles(refRange.base, config.exclude);
   if (changedFiles.length === 0) {
     return 0;
   }
@@ -77,7 +99,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
   for (const [readmePath, files] of readmeGroups) {
     const fullPath = join(process.cwd(), readmePath);
     const currentReadme = readFileSync(fullPath, "utf-8");
-    const scopedDiff = getDiffForFiles(upstream, files, config.maxDiffSize);
+    const scopedDiff = getDiffForFiles(refRange.base, files, config.maxDiffSize);
 
     if (!scopedDiff) continue;
 
@@ -117,8 +139,14 @@ export async function run(options: RunOptions = {}): Promise<number> {
       execFileSync("git", ["add", update.path]);
     }
     execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...updatedPaths]);
-    showUpdateMessage();
-    return 1;
+    // Auto-push the README update
+    try {
+      execFileSync("git", ["push"], { stdio: "inherit" });
+      process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
+    } catch {
+      showWarning("README committed but auto-push failed. Run `git push` to push the update.");
+    }
+    return 0;
   }
 
   // Interactive mode
@@ -155,7 +183,6 @@ export async function run(options: RunOptions = {}): Promise<number> {
   // Track which paths were actually staged
   const stagedPaths: string[] = [];
   for (const update of updates) {
-    // Check if this specific file was staged (user might have chosen 'n' for some)
     const status = execFileSync("git", ["diff", "--cached", "--name-only", "--", update.path], {
       encoding: "utf-8",
     }).trim();
@@ -168,8 +195,14 @@ export async function run(options: RunOptions = {}): Promise<number> {
   }
 
   execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...stagedPaths]);
-  showUpdateMessage();
-  return 1;
+  // Auto-push the README update
+  try {
+    execFileSync("git", ["push"], { stdio: "inherit" });
+    process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
+  } catch {
+    showWarning("README committed but auto-push failed. Run `git push` to push the update.");
+  }
+  return 0;
 }
 
 function matchBranch(branch: string, pattern: string): boolean {

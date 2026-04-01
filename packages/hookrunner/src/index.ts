@@ -2,4 +2,5 @@ export { loadConfig, mergeConfigs, saveGlobalConfig, loadGlobalConfigOnly, loadR
 export { runHooks } from "./runner.js";
 export { init } from "./setup/init.js";
 export { uninstall } from "./setup/uninstall.js";
-export type { HookEntry, HookRunnerConfig } from "./types.js";
+export type { HookEntry, HookRunnerConfig, HookType } from "./types.js";
+export { SUPPORTED_HOOK_TYPES } from "./types.js";

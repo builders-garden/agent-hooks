@@ -13,23 +13,23 @@ function isRegisteredWithHookrunner(): boolean {
 
 export async function uninstall(opts: { husky?: boolean }): Promise<void> {
   if (isRegisteredWithHookrunner()) {
-    execSync("hookrunner remove readmeguard");
+    execSync("hookrunner remove readmeguard --type post-push");
     console.log("readmeguard: Unregistered from hookrunner.");
     return;
   }
 
   // Standalone uninstall
   if (opts.husky) {
-    const hookPath = join(process.cwd(), ".husky", "pre-push");
+    const hookPath = join(process.cwd(), ".husky", "post-push");
     if (existsSync(hookPath)) {
       unlinkSync(hookPath);
-      console.log("readmeguard: Removed .husky/pre-push hook.");
+      console.log("readmeguard: Removed .husky/post-push hook.");
     }
   } else {
-    const hookPath = join(process.cwd(), ".git", "hooks", "pre-push");
+    const hookPath = join(process.cwd(), ".git", "hooks", "post-push");
     if (existsSync(hookPath)) {
       unlinkSync(hookPath);
-      console.log("readmeguard: Removed .git/hooks/pre-push hook.");
+      console.log("readmeguard: Removed .git/hooks/post-push hook.");
     }
   }
 }

@@ -15,37 +15,36 @@ export async function init(opts: { husky?: boolean }): Promise<void> {
   const hookScript = '#!/bin/sh\nreadmeguard run "$@"\n';
 
   if (isHookrunnerInstalled()) {
-    execSync('hookrunner add readmeguard --command "readmeguard run"');
-    console.log("readmeguard: Registered with hookrunner.");
+    execSync('hookrunner add readmeguard --command "readmeguard run" --type post-push');
+    console.log("readmeguard: Registered with hookrunner as post-push hook.");
     return;
   }
 
-  // Standalone installation
+  // Standalone installation — use post-push hook
   if (opts.husky) {
     const huskyDir = join(process.cwd(), ".husky");
-    const hookPath = join(huskyDir, "pre-push");
+    const hookPath = join(huskyDir, "post-push");
     if (!existsSync(huskyDir)) {
       mkdirSync(huskyDir, { recursive: true });
     }
     if (existsSync(hookPath)) {
-      console.warn("readmeguard: Warning — existing .husky/pre-push will be overwritten.");
+      console.warn("readmeguard: Warning — existing .husky/post-push will be overwritten.");
     }
     writeFileSync(hookPath, hookScript);
     chmodSync(hookPath, 0o755);
-    console.log("readmeguard: Installed .husky/pre-push hook.");
+    console.log("readmeguard: Installed .husky/post-push hook.");
   } else {
-    // Local repo install — write to .git/hooks/pre-push
-    // (Does NOT use core.hooksPath — that's hookrunner's domain)
+    // Local repo install — write to .git/hooks/post-push
     const hooksDir = join(process.cwd(), ".git", "hooks");
-    const hookPath = join(hooksDir, "pre-push");
+    const hookPath = join(hooksDir, "post-push");
     if (!existsSync(hooksDir)) {
       mkdirSync(hooksDir, { recursive: true });
     }
     if (existsSync(hookPath)) {
-      console.warn("readmeguard: Warning — existing .git/hooks/pre-push will be overwritten.");
+      console.warn("readmeguard: Warning — existing .git/hooks/post-push will be overwritten.");
     }
     writeFileSync(hookPath, hookScript);
     chmodSync(hookPath, 0o755);
-    console.log("readmeguard: Installed .git/hooks/pre-push hook.");
+    console.log("readmeguard: Installed .git/hooks/post-push hook.");
   }
 }

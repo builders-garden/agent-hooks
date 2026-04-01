@@ -87,7 +87,7 @@ describe("CLI", () => {
       mkdirSync(configDir, { recursive: true });
       writeFileSync(
         join(configDir, "config.json"),
-        JSON.stringify({ "pre-push": [] }, null, 2) + "\n",
+        JSON.stringify({ "pre-push": [], "post-push": [] }, null, 2) + "\n",
       );
       globalConfigPath = join(configDir, "config.json");
     });
@@ -101,7 +101,7 @@ describe("CLI", () => {
         'add pushguard --command "pushguard run"',
         { HOME: tmpHome },
       );
-      expect(output).toContain("Added hook");
+      expect(output).toContain("Added pre-push hook");
       expect(output).toContain("pushguard");
 
       const config = readJsonFile(globalConfigPath);
@@ -139,7 +139,7 @@ describe("CLI", () => {
           tmpCwd,
           { HOME: tmpHome },
         );
-        expect(output).toContain("Added hook");
+        expect(output).toContain("Added pre-push hook");
 
         const repoConfig = readJsonFile(join(tmpCwd, ".hookrunner.json"));
         expect(repoConfig["pre-push"]).toHaveLength(1);
@@ -167,6 +167,7 @@ describe("CLI", () => {
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
           { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
         ],
+        "post-push": [],
       };
       writeFileSync(
         join(configDir, "config.json"),
@@ -208,6 +209,7 @@ describe("CLI", () => {
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
           { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
         ],
+        "post-push": [],
       };
       writeFileSync(
         join(configDir, "config.json"),
@@ -253,6 +255,7 @@ describe("CLI", () => {
           { name: "pushguard", command: "pushguard run", order: 1, enabled: true },
           { name: "readmeguard", command: "readmeguard run", order: 2, enabled: true },
         ],
+        "post-push": [],
       };
       writeFileSync(
         join(configDir, "config.json"),
@@ -302,6 +305,7 @@ describe("CLI", () => {
           { name: "pass1", command: "true", order: 1, enabled: true },
           { name: "pass2", command: "true", order: 2, enabled: true },
         ],
+        "post-push": [],
       };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
@@ -317,6 +321,7 @@ describe("CLI", () => {
         "pre-push": [
           { name: "fail", command: "false", order: 1, enabled: true },
         ],
+        "post-push": [],
       };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
@@ -329,7 +334,7 @@ describe("CLI", () => {
     });
 
     it("exits 0 when hook type has no hooks", () => {
-      const config: HookRunnerConfig = { "pre-push": [] };
+      const config: HookRunnerConfig = { "pre-push": [], "post-push": [] };
       writeFileSync(
         join(tmpHome, ".hookrunner", "config.json"),
         JSON.stringify(config, null, 2) + "\n",
