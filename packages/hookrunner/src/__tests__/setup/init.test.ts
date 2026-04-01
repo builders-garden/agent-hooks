@@ -31,8 +31,12 @@ vi.mock("node:child_process", () => ({
 // Import after mocks
 import { init } from "../../setup/init.js";
 
-const PRE_PUSH_HOOK_SCRIPT = `#!/bin/sh\nhookrunner exec pre-push "$@"\n`;
-const POST_PUSH_HOOK_SCRIPT = `#!/bin/sh\nhookrunner exec post-push "$@"\n`;
+// Tests check that hook scripts contain the expected command, not exact content
+// (since the scripts now include temp file logic for base ref passing)
+function assertHookScriptContains(content: string, hookType: string) {
+  expect(content).toContain("#!/bin/sh");
+  expect(content).toContain(`hookrunner exec ${hookType}`);
+}
 
 describe("init — global mode", () => {
   let tmpDir: string;
@@ -57,7 +61,7 @@ describe("init — global mode", () => {
 
     const prePushPath = join(fakeHome, ".hookrunner", "hooks", "pre-push");
     expect(existsSync(prePushPath)).toBe(true);
-    expect(readFileSync(prePushPath, "utf-8")).toBe(PRE_PUSH_HOOK_SCRIPT);
+    assertHookScriptContains(readFileSync(prePushPath, "utf-8"), "pre-push");
 
     const stat = statSync(prePushPath);
     // Check executable bit (owner execute = 0o100)
@@ -69,7 +73,7 @@ describe("init — global mode", () => {
 
     const postPushPath = join(fakeHome, ".hookrunner", "hooks", "post-push");
     expect(existsSync(postPushPath)).toBe(true);
-    expect(readFileSync(postPushPath, "utf-8")).toBe(POST_PUSH_HOOK_SCRIPT);
+    assertHookScriptContains(readFileSync(postPushPath, "utf-8"), "post-push");
 
     const stat = statSync(postPushPath);
     expect(stat.mode & 0o111).not.toBe(0);
@@ -132,11 +136,11 @@ describe("init — husky mode", () => {
 
     const prePushPath = join(tmpDir, ".husky", "pre-push");
     expect(existsSync(prePushPath)).toBe(true);
-    expect(readFileSync(prePushPath, "utf-8")).toBe(PRE_PUSH_HOOK_SCRIPT);
+    assertHookScriptContains(readFileSync(prePushPath, "utf-8"), "pre-push");
 
     const postPushPath = join(tmpDir, ".husky", "post-push");
     expect(existsSync(postPushPath)).toBe(true);
-    expect(readFileSync(postPushPath, "utf-8")).toBe(POST_PUSH_HOOK_SCRIPT);
+    assertHookScriptContains(readFileSync(postPushPath, "utf-8"), "post-push");
   });
 
   it("creates .husky/ directory if it doesn't exist", () => {

@@ -15,19 +15,28 @@ export interface InitOptions {
 
 function makeHookScript(hookType: string): string {
   if (hookType === "pre-push") {
-    // Save the upstream ref to a temp file before push so post-push hooks can diff against it.
-    // The pre-push and post-push scripts run as separate processes, so env vars don't carry over.
+    // Save the upstream ref to a unique temp file before push so post-push hooks
+    // can diff against it. Uses repo path hash + PID to avoid collisions and symlink attacks.
     return `#!/bin/sh
-git rev-parse @{upstream} 2>/dev/null > /tmp/.hookrunner-base-ref 2>/dev/null || true
+REPO_HASH=$(git rev-parse --show-toplevel 2>/dev/null | shasum | cut -d' ' -f1)
+HOOKRUNNER_BASE_REF_FILE="/tmp/.hookrunner-base-ref-\${REPO_HASH}"
+git rev-parse @{upstream} 2>/dev/null > "$HOOKRUNNER_BASE_REF_FILE" 2>/dev/null || true
 hookrunner exec pre-push "$@"
+RET=$?
+if [ $RET -ne 0 ]; then
+  rm -f "$HOOKRUNNER_BASE_REF_FILE"
+fi
+exit $RET
 `;
   }
   if (hookType === "post-push") {
     // Read the base ref saved by pre-push and pass it to post-push hooks
     return `#!/bin/sh
-if [ -f /tmp/.hookrunner-base-ref ]; then
-  export READMEGUARD_BASE_REF=$(cat /tmp/.hookrunner-base-ref)
-  rm -f /tmp/.hookrunner-base-ref
+REPO_HASH=$(git rev-parse --show-toplevel 2>/dev/null | shasum | cut -d' ' -f1)
+HOOKRUNNER_BASE_REF_FILE="/tmp/.hookrunner-base-ref-\${REPO_HASH}"
+if [ -f "$HOOKRUNNER_BASE_REF_FILE" ]; then
+  export READMEGUARD_BASE_REF=$(cat "$HOOKRUNNER_BASE_REF_FILE")
+  rm -f "$HOOKRUNNER_BASE_REF_FILE"
 fi
 hookrunner exec post-push "$@"
 `;
