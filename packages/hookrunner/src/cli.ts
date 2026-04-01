@@ -191,6 +191,29 @@ program
   });
 
 program
+  .command("status")
+  .description("Show hookrunner status: installation mode, hooks, and config sources")
+  .action(() => {
+    const config = loadConfig();
+    const hooks = [...config["pre-push"]].sort((a, b) => a.order - b.order);
+    const enabled = hooks.filter((h) => h.enabled);
+    const disabled = hooks.filter((h) => !h.enabled);
+
+    console.log("hookrunner status:");
+    console.log(`  Hooks registered: ${hooks.length} (${enabled.length} enabled, ${disabled.length} disabled)`);
+    console.log("");
+    if (hooks.length > 0) {
+      console.log("  Pre-push pipeline:");
+      for (const hook of hooks) {
+        const icon = hook.enabled ? "\u2713" : "\u2717";
+        console.log(`    ${icon} ${hook.order}. ${hook.name} \u2192 ${hook.command}`);
+      }
+    } else {
+      console.log("  No hooks registered. Use 'hookrunner add' to register a hook.");
+    }
+  });
+
+program
   .command("exec <hook-type> [args...]")
   .description("Execute hooks for a given hook type (called by git)")
   .allowUnknownOption()
