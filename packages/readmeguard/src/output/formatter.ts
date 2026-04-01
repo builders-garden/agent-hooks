@@ -1,4 +1,5 @@
 import { createInterface } from "node:readline";
+import { createReadStream } from "node:fs";
 import { diffLines } from "diff";
 
 export function showDiff(oldContent: string, newContent: string): void {
@@ -13,16 +14,29 @@ export function showDiff(oldContent: string, newContent: string): void {
 }
 
 export function isTTY(): boolean {
-  return process.stdin.isTTY === true;
+  // When running as a subprocess (via hookrunner), process.stdin is piped
+  // and isTTY is false. Check /dev/tty directly instead — that's the real
+  // terminal, and it's how git itself handles prompts inside hooks.
+  try {
+    const fd = require("node:fs").openSync("/dev/tty", "r");
+    require("node:fs").closeSync(fd);
+    return true;
+  } catch {
+    return false;
+  }
 }
 
 export async function promptUser(): Promise<"Y" | "n" | "e"> {
-  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  // Read from /dev/tty instead of process.stdin — when running as a
+  // hookrunner subprocess, stdin is piped (git ref data), not the terminal.
+  const ttyInput = createReadStream("/dev/tty");
+  const rl = createInterface({ input: ttyInput, output: process.stderr });
   return new Promise((resolve) => {
     rl.question(
       "\nreadmeguard: Apply README update? [Y] Apply & push again  [n] Skip  [e] Edit first: ",
       (answer) => {
         rl.close();
+        ttyInput.close();
         const choice = answer.trim().toLowerCase();
         if (choice === "n") resolve("n");
         else if (choice === "e") resolve("e");
