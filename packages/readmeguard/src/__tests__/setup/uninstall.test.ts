@@ -44,45 +44,45 @@ describe("uninstall", () => {
     expect(mockExecSync).toHaveBeenCalledWith("hookrunner list", {
       encoding: "utf-8",
     });
-    expect(mockExecSync).toHaveBeenCalledWith("hookrunner remove readmeguard --type post-push");
+    expect(mockExecSync).toHaveBeenCalledWith("hookrunner remove readmeguard");
     expect(console.log).toHaveBeenCalledWith(
       "readmeguard: Unregistered from hookrunner.",
     );
   });
 
-  it("removes standalone .git/hooks/post-push", async () => {
+  it("removes standalone .git/hooks/pre-push", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     const hooksDir = join(tmpDir, ".git", "hooks");
     mkdirSync(hooksDir, { recursive: true });
-    const hookPath = join(hooksDir, "post-push");
+    const hookPath = join(hooksDir, "pre-push");
     writeFileSync(hookPath, '#!/bin/sh\nreadmeguard run "$@"\n');
 
     await uninstall({});
 
     expect(existsSync(hookPath)).toBe(false);
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Removed .git/hooks/post-push hook.",
+      "readmeguard: Removed .git/hooks/pre-push hook.",
     );
   });
 
-  it("removes .husky/post-push in husky mode", async () => {
+  it("removes .husky/pre-push in husky mode", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     const huskyDir = join(tmpDir, ".husky");
     mkdirSync(huskyDir, { recursive: true });
-    const hookPath = join(huskyDir, "post-push");
+    const hookPath = join(huskyDir, "pre-push");
     writeFileSync(hookPath, '#!/bin/sh\nreadmeguard run "$@"\n');
 
     await uninstall({ husky: true });
 
     expect(existsSync(hookPath)).toBe(false);
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Removed .husky/post-push hook.",
+      "readmeguard: Removed .husky/pre-push hook.",
     );
   });
 

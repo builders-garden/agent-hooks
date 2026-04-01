@@ -31,12 +31,7 @@ vi.mock("node:child_process", () => ({
 // Import after mocks
 import { init } from "../../setup/init.js";
 
-// Tests check that hook scripts contain the expected command, not exact content
-// (since the scripts now include temp file logic for base ref passing)
-function assertHookScriptContains(content: string, hookType: string) {
-  expect(content).toContain("#!/bin/sh");
-  expect(content).toContain(`hookrunner exec ${hookType}`);
-}
+const HOOK_SCRIPT = `#!/bin/sh\nhookrunner exec pre-push "$@"\n`;
 
 describe("init — global mode", () => {
   let tmpDir: string;
@@ -59,23 +54,12 @@ describe("init — global mode", () => {
   it("creates ~/.hookrunner/hooks/pre-push with correct content and executable permissions", () => {
     init({ husky: false });
 
-    const prePushPath = join(fakeHome, ".hookrunner", "hooks", "pre-push");
-    expect(existsSync(prePushPath)).toBe(true);
-    assertHookScriptContains(readFileSync(prePushPath, "utf-8"), "pre-push");
+    const hookPath = join(fakeHome, ".hookrunner", "hooks", "pre-push");
+    expect(existsSync(hookPath)).toBe(true);
+    expect(readFileSync(hookPath, "utf-8")).toBe(HOOK_SCRIPT);
 
-    const stat = statSync(prePushPath);
+    const stat = statSync(hookPath);
     // Check executable bit (owner execute = 0o100)
-    expect(stat.mode & 0o111).not.toBe(0);
-  });
-
-  it("creates ~/.hookrunner/hooks/post-push with correct content and executable permissions", () => {
-    init({ husky: false });
-
-    const postPushPath = join(fakeHome, ".hookrunner", "hooks", "post-push");
-    expect(existsSync(postPushPath)).toBe(true);
-    assertHookScriptContains(readFileSync(postPushPath, "utf-8"), "post-push");
-
-    const stat = statSync(postPushPath);
     expect(stat.mode & 0o111).not.toBe(0);
   });
 
@@ -94,7 +78,7 @@ describe("init — global mode", () => {
     const configPath = join(fakeHome, ".hookrunner", "config.json");
     expect(existsSync(configPath)).toBe(true);
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config).toEqual({ "pre-push": [], "post-push": [] });
+    expect(config).toEqual({ "pre-push": [] });
   });
 
   it("does not overwrite existing config.json", () => {
@@ -131,16 +115,12 @@ describe("init — husky mode", () => {
     rmSync(tmpDir, { recursive: true, force: true });
   });
 
-  it("creates .husky/pre-push and .husky/post-push with correct content", () => {
+  it("creates .husky/pre-push with correct content", () => {
     init({ husky: true });
 
-    const prePushPath = join(tmpDir, ".husky", "pre-push");
-    expect(existsSync(prePushPath)).toBe(true);
-    assertHookScriptContains(readFileSync(prePushPath, "utf-8"), "pre-push");
-
-    const postPushPath = join(tmpDir, ".husky", "post-push");
-    expect(existsSync(postPushPath)).toBe(true);
-    assertHookScriptContains(readFileSync(postPushPath, "utf-8"), "post-push");
+    const hookPath = join(tmpDir, ".husky", "pre-push");
+    expect(existsSync(hookPath)).toBe(true);
+    expect(readFileSync(hookPath, "utf-8")).toBe(HOOK_SCRIPT);
   });
 
   it("creates .husky/ directory if it doesn't exist", () => {
@@ -158,7 +138,7 @@ describe("init — husky mode", () => {
     const configPath = join(fakeHome, ".hookrunner", "config.json");
     expect(existsSync(configPath)).toBe(true);
     const config = JSON.parse(readFileSync(configPath, "utf-8"));
-    expect(config).toEqual({ "pre-push": [], "post-push": [] });
+    expect(config).toEqual({ "pre-push": [] });
   });
 
   it("does not call git config for hooksPath in husky mode", () => {

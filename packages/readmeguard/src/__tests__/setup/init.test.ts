@@ -37,6 +37,7 @@ describe("init", () => {
   });
 
   it("detects hookrunner and registers with it", async () => {
+    // hookrunner --version succeeds
     mockExecSync.mockImplementation((cmd: string) => {
       if (cmd === "hookrunner --version") return Buffer.from("1.0.0");
       return Buffer.from("");
@@ -48,38 +49,38 @@ describe("init", () => {
       stdio: "ignore",
     });
     expect(mockExecSync).toHaveBeenCalledWith(
-      'hookrunner add readmeguard --command "readmeguard run" --type post-push',
+      'hookrunner add readmeguard --command "readmeguard run"',
     );
     expect(console.log).toHaveBeenCalledWith(
-      "readmeguard: Registered with hookrunner as post-push hook.",
+      "readmeguard: Registered with hookrunner.",
     );
   });
 
-  it("installs both pre-push and post-push hooks when no hookrunner", async () => {
-    mockExecSync.mockImplementation(() => {
-      throw new Error("not found");
+  it("installs standalone .git/hooks/pre-push when no hookrunner", async () => {
+    // hookrunner --version fails
+    mockExecSync.mockImplementation((cmd: string) => {
+      if (cmd === "hookrunner --version") throw new Error("not found");
+      return Buffer.from("");
     });
 
+    // Create .git/hooks dir
     mkdirSync(join(tmpDir, ".git", "hooks"), { recursive: true });
+
     await init({});
 
-    // Both hooks should be installed
-    const prePushPath = join(tmpDir, ".git", "hooks", "pre-push");
-    const postPushPath = join(tmpDir, ".git", "hooks", "post-push");
-    expect(existsSync(prePushPath)).toBe(true);
-    expect(existsSync(postPushPath)).toBe(true);
+    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    expect(existsSync(hookPath)).toBe(true);
 
-    // Pre-push saves the base ref
-    const prePush = readFileSync(prePushPath, "utf-8");
-    expect(prePush).toContain("#!/bin/sh");
-    expect(prePush).toContain("git rev-parse @{upstream}");
-    expect(prePush).toContain("hookrunner-base-ref");
+    const content = readFileSync(hookPath, "utf-8");
+    expect(content).toBe('#!/bin/sh\nreadmeguard run "$@"\n');
 
-    // Post-push loads the base ref and runs readmeguard
-    const postPush = readFileSync(postPushPath, "utf-8");
-    expect(postPush).toContain("#!/bin/sh");
-    expect(postPush).toContain("READMEGUARD_BASE_REF");
-    expect(postPush).toContain("readmeguard run");
+    const stat = statSync(hookPath);
+    // Check executable bit (owner execute)
+    expect(stat.mode & 0o755).toBe(0o755);
+
+    expect(console.log).toHaveBeenCalledWith(
+      "readmeguard: Installed .git/hooks/pre-push hook.",
+    );
   });
 
   it("creates .git/hooks directory if it does not exist", async () => {
@@ -87,55 +88,80 @@ describe("init", () => {
       throw new Error("not found");
     });
 
+    // Don't create .git/hooks - init should create it
     await init({});
 
-    expect(existsSync(join(tmpDir, ".git", "hooks", "post-push"))).toBe(true);
+    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    expect(existsSync(hookPath)).toBe(true);
   });
 
-  it("warns about overwriting existing hooks", async () => {
+  it("warns about overwriting existing .git/hooks/pre-push", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
+    // Create an existing hook
     const hooksDir = join(tmpDir, ".git", "hooks");
     mkdirSync(hooksDir, { recursive: true });
-    writeFileSync(join(hooksDir, "pre-push"), "old");
-    writeFileSync(join(hooksDir, "post-push"), "old");
+    writeFileSync(join(hooksDir, "pre-push"), "#!/bin/sh\nold hook\n");
 
     await init({});
 
     expect(console.warn).toHaveBeenCalledWith(
-      "readmeguard: Warning — existing pre-push will be overwritten.",
-    );
-    expect(console.warn).toHaveBeenCalledWith(
-      "readmeguard: Warning — existing post-push will be overwritten.",
+      "readmeguard: Warning — existing .git/hooks/pre-push will be overwritten.",
     );
   });
 
-  it("installs husky hooks in husky mode", async () => {
+  it("installs .husky/pre-push in husky mode", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     await init({ husky: true });
 
-    expect(existsSync(join(tmpDir, ".husky", "pre-push"))).toBe(true);
-    expect(existsSync(join(tmpDir, ".husky", "post-push"))).toBe(true);
+    const hookPath = join(tmpDir, ".husky", "pre-push");
+    expect(existsSync(hookPath)).toBe(true);
 
-    const postPush = readFileSync(join(tmpDir, ".husky", "post-push"), "utf-8");
-    expect(postPush).toContain("readmeguard run");
+    const content = readFileSync(hookPath, "utf-8");
+    expect(content).toBe('#!/bin/sh\nreadmeguard run "$@"\n');
+
+    const stat = statSync(hookPath);
+    expect(stat.mode & 0o755).toBe(0o755);
+
+    expect(console.log).toHaveBeenCalledWith(
+      "readmeguard: Installed .husky/pre-push hook.",
+    );
   });
 
-  it("hook scripts are executable", async () => {
+  it("warns about overwriting existing .husky/pre-push", async () => {
+    mockExecSync.mockImplementation(() => {
+      throw new Error("not found");
+    });
+
+    const huskyDir = join(tmpDir, ".husky");
+    mkdirSync(huskyDir, { recursive: true });
+    writeFileSync(join(huskyDir, "pre-push"), "#!/bin/sh\nold hook\n");
+
+    await init({ husky: true });
+
+    expect(console.warn).toHaveBeenCalledWith(
+      "readmeguard: Warning — existing .husky/pre-push will be overwritten.",
+    );
+  });
+
+  it("hook script has correct content and executable permissions", async () => {
     mockExecSync.mockImplementation(() => {
       throw new Error("not found");
     });
 
     await init({});
 
-    for (const hook of ["pre-push", "post-push"]) {
-      const stat = statSync(join(tmpDir, ".git", "hooks", hook));
-      expect(stat.mode & 0o755).toBe(0o755);
-    }
+    const hookPath = join(tmpDir, ".git", "hooks", "pre-push");
+    const content = readFileSync(hookPath, "utf-8");
+    expect(content).toBe('#!/bin/sh\nreadmeguard run "$@"\n');
+    expect(content).toMatch(/^#!\/bin\/sh\n/);
+
+    const stat = statSync(hookPath);
+    expect(stat.mode & 0o755).toBe(0o755);
   });
 });

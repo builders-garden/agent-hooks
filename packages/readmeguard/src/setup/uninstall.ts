@@ -13,27 +13,23 @@ function isRegisteredWithHookrunner(): boolean {
 
 export async function uninstall(opts: { husky?: boolean }): Promise<void> {
   if (isRegisteredWithHookrunner()) {
-    execSync("hookrunner remove readmeguard --type post-push");
+    execSync("hookrunner remove readmeguard");
     console.log("readmeguard: Unregistered from hookrunner.");
     return;
   }
 
-  // Standalone uninstall: remove both pre-push and post-push hooks
+  // Standalone uninstall
   if (opts.husky) {
-    for (const hook of ["pre-push", "post-push"]) {
-      const hookPath = join(process.cwd(), ".husky", hook);
-      if (existsSync(hookPath)) {
-        unlinkSync(hookPath);
-        console.log(`readmeguard: Removed .husky/${hook} hook.`);
-      }
+    const hookPath = join(process.cwd(), ".husky", "pre-push");
+    if (existsSync(hookPath)) {
+      unlinkSync(hookPath);
+      console.log("readmeguard: Removed .husky/pre-push hook.");
     }
   } else {
-    for (const hook of ["pre-push", "post-push"]) {
-      const hookPath = join(process.cwd(), ".git", "hooks", hook);
-      if (existsSync(hookPath)) {
-        unlinkSync(hookPath);
-        console.log(`readmeguard: Removed .git/hooks/${hook} hook.`);
-      }
+    const hookPath = join(process.cwd(), ".git", "hooks", "pre-push");
+    if (existsSync(hookPath)) {
+      unlinkSync(hookPath);
+      console.log("readmeguard: Removed .git/hooks/pre-push hook.");
     }
   }
 }
