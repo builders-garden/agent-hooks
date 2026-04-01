@@ -13,14 +13,34 @@ export interface InitOptions {
   husky: boolean;
 }
 
+function baseRefLogic(): { save: string; load: string } {
+  // Shared logic: pre-push saves the upstream ref, post-push reads it.
+  // Uses repo path hash for per-repo isolation. File is cleaned up after use
+  // or if pre-push fails. Stale files (>5 min) are ignored.
+  const common = `REPO_HASH=$(git rev-parse --show-toplevel 2>/dev/null | shasum | cut -d' ' -f1)
+HOOKRUNNER_BASE_REF_FILE="/tmp/.hookrunner-base-ref-\${REPO_HASH}"`;
+
+  const save = `${common}
+git rev-parse @{upstream} 2>/dev/null > "$HOOKRUNNER_BASE_REF_FILE" 2>/dev/null || true`;
+
+  const load = `${common}
+if [ -f "$HOOKRUNNER_BASE_REF_FILE" ]; then
+  FILE_AGE=$(( $(date +%s) - $(stat -f %m "$HOOKRUNNER_BASE_REF_FILE" 2>/dev/null || stat -c %Y "$HOOKRUNNER_BASE_REF_FILE" 2>/dev/null || echo 0) ))
+  if [ "$FILE_AGE" -lt 300 ]; then
+    export READMEGUARD_BASE_REF=$(cat "$HOOKRUNNER_BASE_REF_FILE")
+  fi
+  rm -f "$HOOKRUNNER_BASE_REF_FILE"
+fi`;
+
+  return { save, load };
+}
+
 function makeHookScript(hookType: string): string {
+  const { save, load } = baseRefLogic();
+
   if (hookType === "pre-push") {
-    // Save the upstream ref to a unique temp file before push so post-push hooks
-    // can diff against it. Uses repo path hash + PID to avoid collisions and symlink attacks.
     return `#!/bin/sh
-REPO_HASH=$(git rev-parse --show-toplevel 2>/dev/null | shasum | cut -d' ' -f1)
-HOOKRUNNER_BASE_REF_FILE="/tmp/.hookrunner-base-ref-\${REPO_HASH}"
-git rev-parse @{upstream} 2>/dev/null > "$HOOKRUNNER_BASE_REF_FILE" 2>/dev/null || true
+${save}
 hookrunner exec pre-push "$@"
 RET=$?
 if [ $RET -ne 0 ]; then
@@ -30,18 +50,29 @@ exit $RET
 `;
   }
   if (hookType === "post-push") {
-    // Read the base ref saved by pre-push and pass it to post-push hooks
     return `#!/bin/sh
-REPO_HASH=$(git rev-parse --show-toplevel 2>/dev/null | shasum | cut -d' ' -f1)
-HOOKRUNNER_BASE_REF_FILE="/tmp/.hookrunner-base-ref-\${REPO_HASH}"
-if [ -f "$HOOKRUNNER_BASE_REF_FILE" ]; then
-  export READMEGUARD_BASE_REF=$(cat "$HOOKRUNNER_BASE_REF_FILE")
-  rm -f "$HOOKRUNNER_BASE_REF_FILE"
-fi
+${load}
 hookrunner exec post-push "$@"
 `;
   }
   return `#!/bin/sh\nhookrunner exec ${hookType} "$@"\n`;
+}
+
+/**
+ * Generate standalone hook scripts for readmeguard (used when hookrunner is not installed).
+ * Installs both a pre-push (to capture base ref) and post-push (to run readmeguard).
+ */
+export function makeStandaloneHookScripts(): { prePush: string; postPush: string } {
+  const { save, load } = baseRefLogic();
+  return {
+    prePush: `#!/bin/sh
+${save}
+`,
+    postPush: `#!/bin/sh
+${load}
+readmeguard run "$@"
+`,
+  };
 }
 
 export function init(options: InitOptions): void {

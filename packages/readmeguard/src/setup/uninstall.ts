@@ -18,18 +18,22 @@ export async function uninstall(opts: { husky?: boolean }): Promise<void> {
     return;
   }
 
-  // Standalone uninstall
+  // Standalone uninstall: remove both pre-push and post-push hooks
   if (opts.husky) {
-    const hookPath = join(process.cwd(), ".husky", "post-push");
-    if (existsSync(hookPath)) {
-      unlinkSync(hookPath);
-      console.log("readmeguard: Removed .husky/post-push hook.");
+    for (const hook of ["pre-push", "post-push"]) {
+      const hookPath = join(process.cwd(), ".husky", hook);
+      if (existsSync(hookPath)) {
+        unlinkSync(hookPath);
+        console.log(`readmeguard: Removed .husky/${hook} hook.`);
+      }
     }
   } else {
-    const hookPath = join(process.cwd(), ".git", "hooks", "post-push");
-    if (existsSync(hookPath)) {
-      unlinkSync(hookPath);
-      console.log("readmeguard: Removed .git/hooks/post-push hook.");
+    for (const hook of ["pre-push", "post-push"]) {
+      const hookPath = join(process.cwd(), ".git", "hooks", hook);
+      if (existsSync(hookPath)) {
+        unlinkSync(hookPath);
+        console.log(`readmeguard: Removed .git/hooks/${hook} hook.`);
+      }
     }
   }
 }
