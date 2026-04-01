@@ -57,7 +57,7 @@ export async function run(): Promise<number> {
 
     console.log("hook-template: Hook ran successfully!");
     console.log(`  Branch: ${branch}`);
-    console.log(`  Diff size: ${diff.length} bytes`);
+    console.log(`  Diff size: ${Buffer.byteLength(diff)} bytes`);
 
     return 0;
   } catch (err) {

@@ -1,4 +1,4 @@
-import { execSync } from "node:child_process";
+import { execFileSync } from "node:child_process";
 
 /**
  * Get the diff of unpushed commits compared to the upstream tracking branch.
@@ -19,7 +19,7 @@ export function getUnpushedDiff(
   // Check if there are unpushed commits
   let log: string;
   try {
-    log = execSync(`git log ${upstream}..HEAD --oneline`, {
+    log = execFileSync("git", ["log", `${upstream}..HEAD`, "--oneline"], {
       encoding: "utf-8",
       stdio: ["pipe", "pipe", "pipe"],
     }).trim();
@@ -32,15 +32,13 @@ export function getUnpushedDiff(
     return { diff: "", branch };
   }
 
-  // Build exclude pathspecs
-  const excludeArgs = exclude
-    .map((p) => `:(exclude)${p}`)
-    .map((spec) => `"${spec}"`)
-    .join(" ");
+  // Build args with exclude pathspecs (using argument array to avoid injection)
+  const pathspecs = ["--", ".", ...exclude.map((p) => `:(exclude)${p}`)];
 
   // Get diff
-  let diff = execSync(
-    `git diff ${upstream}..HEAD -- . ${excludeArgs}`,
+  let diff = execFileSync(
+    "git",
+    ["diff", `${upstream}..HEAD`, ...pathspecs],
     { encoding: "utf-8", maxBuffer: Math.max(maxDiffSize * 2, 1024 * 1024) },
   );
 
@@ -56,7 +54,7 @@ export function getUnpushedDiff(
  * Get the name of the current git branch.
  */
 export function getCurrentBranch(): string {
-  return execSync("git rev-parse --abbrev-ref HEAD", {
+  return execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
     encoding: "utf-8",
   }).trim();
 }
@@ -66,19 +64,20 @@ export function getCurrentBranch(): string {
  */
 function getUpstream(): string | null {
   try {
-    const upstream = execSync("git rev-parse --abbrev-ref @{upstream}", {
-      encoding: "utf-8",
-      stdio: ["pipe", "pipe", "pipe"],
-    }).trim();
+    const upstream = execFileSync(
+      "git",
+      ["rev-parse", "--abbrev-ref", "@{upstream}"],
+      { encoding: "utf-8", stdio: ["pipe", "pipe", "pipe"] },
+    ).trim();
     // Verify the ref actually exists
-    execSync(`git rev-parse --verify ${upstream}`, {
+    execFileSync("git", ["rev-parse", "--verify", upstream], {
       stdio: ["pipe", "pipe", "pipe"],
     });
     return upstream;
   } catch {
     // Try origin/main as fallback
     try {
-      execSync("git rev-parse --verify origin/main", {
+      execFileSync("git", ["rev-parse", "--verify", "origin/main"], {
         stdio: ["pipe", "pipe", "pipe"],
       });
       return "origin/main";
