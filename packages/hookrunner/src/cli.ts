@@ -95,9 +95,14 @@ program
 program
   .command("list")
   .description("List all configured hooks (merged view)")
-  .action(() => {
+  .option("--json", "Output as JSON for scripting", false)
+  .action((opts) => {
     const config = loadConfig();
     const hooks = [...config["pre-push"]].sort((a, b) => a.order - b.order);
+    if (opts.json) {
+      console.log(JSON.stringify(hooks, null, 2));
+      return;
+    }
     if (hooks.length === 0) {
       console.log("No hooks configured.");
       return;
