@@ -52,7 +52,9 @@ Registers readmeguard as a managed pre-commit hook under hookrunner.
 
 ## Monorepo support
 
-readmeguard automatically discovers all `README.md` files tracked by git and scopes its analysis accordingly. When files change in a package that has its own README, only that README is analyzed and updated — the root README is not affected by those changes, and vice versa.
+readmeguard automatically discovers all `README.md` files tracked by git and scopes its analysis accordingly. Each changed file is grouped under its closest README for targeted analysis.
+
+In addition, when a root `README.md` exists, all sub-package changes are also included in the root README's scope. This allows the AI to determine whether the top-level overview needs updating — for example, when a sub-package adds a new feature, renames a command, or changes its public API.
 
 For example, in a repo with:
 
@@ -62,7 +64,7 @@ packages/foo/README.md
 packages/bar/README.md
 ```
 
-A change to `packages/foo/src/index.ts` will only trigger analysis of `packages/foo/README.md`. Changes to `src/app.ts` will only trigger analysis of the root `README.md`.
+A change to `packages/foo/src/index.ts` will trigger analysis of both `packages/foo/README.md` and the root `README.md`. Changes to `src/app.ts` will only trigger analysis of the root `README.md`.
 
 In interactive mode, each README that needs updating is presented separately with its own diff and prompt, so you can accept, edit, or skip updates individually.
 

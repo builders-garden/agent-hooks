@@ -67,12 +67,18 @@ export function findClosestReadme(filePath: string, readmes: string[]): string |
 /**
  * Group changed files by their closest README.
  * Returns a map: README path → list of changed files in its scope.
+ *
+ * In a monorepo with nested READMEs, the root README acts as an umbrella
+ * overview. When files change under sub-package READMEs, the root README
+ * also receives those files so the AI can decide if the overview needs
+ * updating (e.g. new features, renamed packages, changed commands).
  */
 export function groupFilesByReadme(
   changedFiles: string[],
   readmes: string[],
 ): Map<string, string[]> {
   const groups = new Map<string, string[]>();
+  const hasRootReadme = readmes.includes("README.md");
 
   for (const file of changedFiles) {
     // Skip README files themselves — they're the target, not the source
@@ -84,6 +90,14 @@ export function groupFilesByReadme(
     const existing = groups.get(readme) ?? [];
     existing.push(file);
     groups.set(readme, existing);
+
+    // Also include in root README scope if the file was grouped under
+    // a sub-package README — the root overview may need updating too.
+    if (hasRootReadme && readme !== "README.md") {
+      const rootFiles = groups.get("README.md") ?? [];
+      rootFiles.push(file);
+      groups.set("README.md", rootFiles);
+    }
   }
 
   return groups;

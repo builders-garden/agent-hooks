@@ -47,7 +47,7 @@ describe("readme-discovery", () => {
       "packages/readmeguard/README.md",
     ];
 
-    it("groups files by closest README", () => {
+    it("groups files by closest README and includes sub-package files in root", () => {
       const files = [
         "packages/hookrunner/src/cli.ts",
         "packages/hookrunner/src/runner.ts",
@@ -64,7 +64,13 @@ describe("readme-discovery", () => {
       expect(groups.get("packages/readmeguard/README.md")).toEqual([
         "packages/readmeguard/src/run.ts",
       ]);
-      expect(groups.get("README.md")).toEqual(["src/app.ts"]);
+      // Root README gets root-level files + all sub-package files
+      expect(groups.get("README.md")).toEqual([
+        "packages/hookrunner/src/cli.ts",
+        "packages/hookrunner/src/runner.ts",
+        "packages/readmeguard/src/run.ts",
+        "src/app.ts",
+      ]);
     });
 
     it("excludes README files from grouping", () => {
@@ -81,6 +87,32 @@ describe("readme-discovery", () => {
         ["packages/hookrunner/README.md"],
       );
       expect(groups.size).toBe(0);
+    });
+
+    it("does not duplicate root files when they already belong to root README", () => {
+      const files = ["src/app.ts", "config.json"];
+      const groups = groupFilesByReadme(files, readmes);
+
+      // Root-level files should appear once, not duplicated
+      expect(groups.get("README.md")).toEqual(["src/app.ts", "config.json"]);
+      expect(groups.size).toBe(1);
+    });
+
+    it("includes sub-package files in root only when root README exists", () => {
+      // No root README in the list
+      const subReadmes = [
+        "packages/hookrunner/README.md",
+        "packages/readmeguard/README.md",
+      ];
+      const files = ["packages/hookrunner/src/cli.ts"];
+
+      const groups = groupFilesByReadme(files, subReadmes);
+
+      // No root README entry should be created
+      expect(groups.has("README.md")).toBe(false);
+      expect(groups.get("packages/hookrunner/README.md")).toEqual([
+        "packages/hookrunner/src/cli.ts",
+      ]);
     });
   });
 });
