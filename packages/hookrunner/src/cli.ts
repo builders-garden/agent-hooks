@@ -214,6 +214,23 @@ program
   });
 
 program
+  .command("run-one <name> [args...]")
+  .description("Run a single hook by name (useful for testing)")
+  .allowUnknownOption()
+  .passThroughOptions()
+  .action(async (name, args) => {
+    const config = loadConfig();
+    const hook = config["pre-push"].find((h) => h.name === name);
+    if (!hook) {
+      console.error(`Hook "${name}" not found.`);
+      process.exit(1);
+    }
+    const stdinBuffer = await readStdin();
+    const result = runHooks([{ ...hook, enabled: true }], stdinBuffer, args);
+    process.exit(result.exitCode);
+  });
+
+program
   .command("exec <hook-type> [args...]")
   .description("Execute hooks for a given hook type (called by git)")
   .allowUnknownOption()
