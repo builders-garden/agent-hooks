@@ -6,9 +6,9 @@ A collection of AI-powered git hook tools. Currently includes:
 
 | Package | Description |
 |---------|-------------|
-| [@agent-automation/hookrunner](packages/hookrunner/) | Git hook orchestrator -- manage execution order of multiple pre-push hooks |
-| [@agent-automation/readmeguard](packages/readmeguard/) | Pre-push hook that uses AI to update your README when substantial changes are detected |
-| [hook-template](packages/hook-template/) | Starter template for creating new pre-push hooks |
+| [@agent-automation/hookrunner](packages/hookrunner/) | Git hook orchestrator -- manage execution order of multiple git hooks (pre-push, pre-commit) |
+| [@agent-automation/readmeguard](packages/readmeguard/) | Pre-commit hook that uses AI to update your README when substantial changes are detected |
+| [hook-template](packages/hook-template/) | Starter template for creating new git hooks (supports any hook type) |
 
 ## Creating Your Own Hook
 
@@ -41,9 +41,9 @@ readmeguard init
 ```bash
 npm install -g @agent-automation/hookrunner @agent-automation/readmeguard
 hookrunner init
-hookrunner add readmeguard --command "readmeguard run" --order 1
+hookrunner add readmeguard --command "readmeguard run" --type pre-commit
 # Add other hooks as needed, e.g.:
-# hookrunner add pushguard --command "pushguard run" --order 2
+# hookrunner add pushguard --command "pushguard run" --type pre-push
 ```
 
 ### Testing a single hook
