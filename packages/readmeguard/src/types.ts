@@ -15,7 +15,7 @@ export interface ReadmeguardConfig {
 
 export const DEFAULT_CONFIG: ReadmeguardConfig = {
   provider: "claude",
-  mode: "interactive",
+  mode: "auto",
   exclude: ["*.lock", "*.min.js", "*.map", "dist/**", "node_modules/**"],
   skipBranches: [],
   timeout: 300_000,

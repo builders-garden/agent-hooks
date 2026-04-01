@@ -193,19 +193,29 @@ describe("run", () => {
       );
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["commit", "-m", "docs: update README(s)", "--", "packages/hookrunner/README.md"]);
-      expect(mockShowUpdateMessage).toHaveBeenCalled();
+      expect(mockExecFileSync).toHaveBeenCalledWith(
+        "git",
+        ["push", "--no-verify"],
+        expect.objectContaining({ stdio: "inherit" }),
+      );
     });
 
-    it("interactive mode non-TTY: skips with warning, returns 0", async () => {
+    it("interactive mode non-TTY: applies updates automatically and pushes", async () => {
       setupStandardMocks(makeConfig({ mode: "interactive" }));
       mockAnalyze.mockReturnValue({ decision: "UPDATE", updatedReadme: "# New README" });
       mockIsTTY.mockReturnValue(false);
 
       const result = await run();
 
-      expect(result).toBe(0);
-      expect(mockShowWarning).toHaveBeenCalledWith(
-        "Interactive mode requires a TTY. Skipping README update.",
+      expect(result).toBe(1);
+      expect(mockWriteFileSync).toHaveBeenCalledWith(
+        expect.stringContaining("packages/hookrunner/README.md"),
+        "# New README",
+      );
+      expect(mockExecFileSync).toHaveBeenCalledWith(
+        "git",
+        ["push", "--no-verify"],
+        expect.objectContaining({ stdio: "inherit" }),
       );
     });
 
@@ -224,7 +234,11 @@ describe("run", () => {
         expect.stringContaining("packages/hookrunner/README.md"),
         "# New README",
       );
-      expect(mockShowUpdateMessage).toHaveBeenCalled();
+      expect(mockExecFileSync).toHaveBeenCalledWith(
+        "git",
+        ["push", "--no-verify"],
+        expect.objectContaining({ stdio: "inherit" }),
+      );
     });
 
     it("interactive mode with TTY: returns 0 when user chooses n for all", async () => {

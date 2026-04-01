@@ -16,6 +16,7 @@ export function runHooks(
       input: stdinBuffer,
       stdio: ["pipe", "inherit", "inherit"],
       timeout: 300_000,
+      env: process.env, // Explicit: ensure env vars propagate through subprocess chains
     });
 
     if (result.status !== 0) {

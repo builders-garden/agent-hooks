@@ -104,7 +104,7 @@ describe("loadConfig", () => {
     expect(result.provider).toBe("codex");
     expect(result.failOnError).toBe(true);
     // Other defaults preserved
-    expect(result.mode).toBe("interactive");
+    expect(result.mode).toBe("auto");
   });
 
   it("partial config merges with defaults", () => {
@@ -141,7 +141,7 @@ describe("loadConfig", () => {
     // .readmeguard.json wins for provider
     expect(result.provider).toBe("claude");
     // package.json is ignored entirely when .readmeguard.json exists
-    expect(result.mode).toBe("interactive");
+    expect(result.mode).toBe("auto");
   });
 
   it("global config is applied when no repo config exists", () => {
@@ -156,7 +156,7 @@ describe("loadConfig", () => {
     expect(result.provider).toBe("codex");
     expect(result.timeout).toBe(120_000);
     // Defaults for the rest
-    expect(result.mode).toBe("interactive");
+    expect(result.mode).toBe("auto");
   });
 
   it("full priority chain: env > repo > global > defaults", () => {

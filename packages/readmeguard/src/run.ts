@@ -14,7 +14,6 @@ import { analyze } from "./analysis/analyzer.js";
 import {
   showDiff,
   promptUser,
-  showUpdateMessage,
   showWarning,
   isTTY,
 } from "./output/formatter.js";
@@ -108,67 +107,77 @@ export async function run(options: RunOptions = {}): Promise<number> {
     `readmeguard: ${updates.length} README(s) to update: ${updates.map((u) => u.path).join(", ")}\n`,
   );
 
-  // Handle updates based on mode
-  const updatedPaths = updates.map((u) => u.path);
+  // Collect paths that should be committed
+  const pathsToCommit: string[] = [];
 
   if (config.mode === "auto") {
+    // Auto mode: write all updates, no prompts
     for (const update of updates) {
       writeFileSync(join(process.cwd(), update.path), update.content);
-      execFileSync("git", ["add", update.path]);
+      pathsToCommit.push(update.path);
     }
-    execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...updatedPaths]);
-    showUpdateMessage();
-    return 1;
-  }
-
-  // Interactive mode
-  if (!isTTY()) {
-    showWarning("Interactive mode requires a TTY. Skipping README update.");
-    return 0;
-  }
-
-  // Show diff for each update and prompt
-  for (const update of updates) {
-    const fullPath = join(process.cwd(), update.path);
-    const currentContent = readFileSync(fullPath, "utf-8");
-
-    process.stderr.write(`\n--- ${update.path} ---\n`);
-    showDiff(currentContent, update.content);
-
-    const choice = await promptUser();
-
-    if (choice === "n") {
-      continue;
-    }
-
-    if (choice === "e") {
-      writeFileSync(fullPath, update.content);
-      const editor = process.env.EDITOR || "vi";
-      execFileSync(editor, [fullPath], { stdio: "inherit" });
+  } else {
+    // Interactive mode
+    if (!isTTY()) {
+      // No TTY available — fall back to auto mode (agent-friendly)
+      process.stderr.write("readmeguard: No TTY detected, applying updates automatically.\n");
+      for (const update of updates) {
+        writeFileSync(join(process.cwd(), update.path), update.content);
+        pathsToCommit.push(update.path);
+      }
     } else {
-      writeFileSync(fullPath, update.content);
+      // TTY available — prompt per README
+      for (const update of updates) {
+        const fullPath = join(process.cwd(), update.path);
+        const currentContent = readFileSync(fullPath, "utf-8");
+
+        process.stderr.write(`\n--- ${update.path} ---\n`);
+        showDiff(currentContent, update.content);
+
+        const choice = await promptUser();
+
+        if (choice === "n") continue;
+
+        if (choice === "e") {
+          writeFileSync(fullPath, update.content);
+          const editor = process.env.EDITOR || "vi";
+          execFileSync(editor, [fullPath], { stdio: "inherit" });
+        } else {
+          writeFileSync(fullPath, update.content);
+        }
+
+        pathsToCommit.push(update.path);
+      }
     }
-
-    execFileSync("git", ["add", update.path]);
   }
 
-  // Track which paths were actually staged
-  const stagedPaths: string[] = [];
-  for (const update of updates) {
-    // Check if this specific file was staged (user might have chosen 'n' for some)
-    const status = execFileSync("git", ["diff", "--cached", "--name-only", "--", update.path], {
-      encoding: "utf-8",
-    }).trim();
-    if (status) stagedPaths.push(update.path);
-  }
-
-  if (stagedPaths.length === 0) {
+  if (pathsToCommit.length === 0) {
     process.stderr.write("readmeguard: All updates skipped.\n");
     return 0;
   }
 
-  execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...stagedPaths]);
-  showUpdateMessage();
+  // Stage and commit the README updates
+  for (const p of pathsToCommit) {
+    execFileSync("git", ["add", p]);
+  }
+  execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...pathsToCommit]);
+
+  // Auto-push the README commit with --no-verify to skip hooks (prevents recursion)
+  // This eliminates the "push again" requirement — critical for AI agents
+  try {
+    execFileSync("git", ["push", "--no-verify"], {
+      stdio: "inherit",
+      env: process.env,
+    });
+    process.stderr.write("readmeguard: README(s) updated, committed, and pushed.\n");
+  } catch {
+    showWarning("README committed but push failed. Run `git push` to push the update.");
+  }
+
+  // Block the original push since we already pushed everything including the README update.
+  // Git's pre-push computes the payload before hooks run, so the original push would not
+  // include our new commit. By pushing with --no-verify above and returning 1 here,
+  // the user's code + README update land on the remote in one seamless operation.
   return 1;
 }
 
