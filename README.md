@@ -46,6 +46,16 @@ hookrunner add readmeguard --command "readmeguard run" --order 1
 # hookrunner add pushguard --command "pushguard run" --order 2
 ```
 
+### Testing a single hook
+
+You can run an individual hook in isolation without triggering the full hook pipeline:
+
+```bash
+hookrunner run-one readmeguard
+```
+
+This is useful for testing and debugging hooks during development.
+
 ## Development
 
 ```bash
