@@ -9,8 +9,8 @@ Pre-push hook that uses AI to selectively update your READMEs when substantial c
 3. It discovers all `README.md` files tracked by git in the repository.
 4. It diffs your unpushed commits against the upstream and groups changed files by their closest README.
 5. An AI provider analyzes each scoped diff alongside the corresponding README.
-6. If any README needs updating, it either auto-commits the changes or prompts you to review each one individually (depending on mode).
-7. The push is blocked so you can push again with the README updates included.
+6. If any README needs updating, it either applies the changes automatically or prompts you to review each one individually (depending on mode).
+7. readmeguard commits the README updates and pushes them automatically (with `--no-verify` to avoid hook recursion), then blocks the original push since the updated refs are already on the remote.
 
 ## Prerequisites
 
@@ -96,7 +96,7 @@ readmeguard loads configuration from multiple sources with the following priorit
 |----------------|----------|------------------------------------------------------|------------------------------------------------------|
 | `provider`     | string   | `"claude"`                                           | AI provider (`"claude"` or `"codex"`)                |
 | `model`        | string   | Provider default                                     | Model to use (overrides provider default)            |
-| `mode`         | string   | `"interactive"`                                      | `"auto"` commits automatically, `"interactive"` prompts |
+| `mode`         | string   | `"auto"`                                             | `"auto"` commits automatically, `"interactive"` prompts |
 | `exclude`      | string[] | `["*.lock", "*.min.js", "*.map", "dist/**", "node_modules/**"]` | Glob patterns to exclude from the diff               |
 | `skipBranches` | string[] | `[]`                                                 | Branch patterns to skip (supports trailing `*` wildcard) |
 | `timeout`      | number   | `300000`                                             | AI provider timeout in milliseconds                  |
@@ -149,6 +149,16 @@ Run analysis manually in interactive mode, ignoring `skipBranches`. Useful for u
 readmeguard update
 ```
 
+## Non-TTY / CI behavior
+
+When running in interactive mode without a TTY (e.g., in CI pipelines or AI agent workflows), readmeguard automatically falls back to auto mode — applying all updates without prompting. This makes readmeguard agent-friendly out of the box.
+
+## Auto-push
+
+After committing README updates, readmeguard automatically pushes the changes to the remote using `--no-verify` (to prevent hook recursion). The original `git push` is then blocked since the updated refs are already on the remote. This eliminates the previous "push again" requirement, making the workflow seamless — especially for automated and agent-driven pipelines.
+
+If the auto-push fails, readmeguard will warn you and you can run `git push` manually.
+
 ## Programmatic API
 
 readmeguard exports its core functions for use in custom tooling:
@@ -188,7 +198,7 @@ readmeguard: 1 README(s) to update: packages/foo/README.md
 
 Apply this update? (y)es / (n)o / (e)dit: y
 
-readmeguard: README updated and committed. Run `git push` again to include the update.
+readmeguard: README(s) updated, committed, and pushed.
 ```
 
 When no update is needed:
