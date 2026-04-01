@@ -50,6 +50,8 @@ export async function run(options: RunOptions = {}): Promise<number> {
     return 0;
   }
 
+  process.stderr.write(`readmeguard: Analyzing ${Buffer.byteLength(diff)} bytes of changes...\n`);
+
   // Run analysis
   const currentReadme = readFileSync(readmePath, "utf-8");
   let result;
@@ -61,6 +63,7 @@ export async function run(options: RunOptions = {}): Promise<number> {
   }
 
   if (result.decision === "NO_UPDATE") {
+    process.stderr.write("readmeguard: No README update needed.\n");
     return 0;
   }
 
