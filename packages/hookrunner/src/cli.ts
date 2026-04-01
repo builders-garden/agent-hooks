@@ -134,15 +134,15 @@ program
   });
 
 program
-  .command("exec <hook-type>")
+  .command("exec <hook-type> [args...]")
   .description("Execute hooks for a given hook type (called by git)")
   .allowUnknownOption()
   .passThroughOptions()
-  .action(async (hookType, _opts, cmd) => {
+  .action(async (hookType, args) => {
     const config = loadConfig();
     const hooks = config[hookType as keyof typeof config] ?? [];
     const stdinBuffer = await readStdin();
-    const result = runHooks(hooks, stdinBuffer, cmd.args.slice(1));
+    const result = runHooks(hooks, stdinBuffer, args);
     process.exit(result.exitCode);
   });
 
