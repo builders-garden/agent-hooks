@@ -2,7 +2,7 @@ import { existsSync, rmSync, unlinkSync } from "node:fs";
 import { join } from "node:path";
 import { homedir } from "node:os";
 import { execSync } from "node:child_process";
-import { GLOBAL_CONFIG_DIR } from "../types.js";
+import { GLOBAL_CONFIG_DIR, SUPPORTED_HOOK_TYPES } from "../types.js";
 
 export interface UninstallOptions {
   husky: boolean;
@@ -12,7 +12,7 @@ export function uninstall(options: UninstallOptions): void {
   if (options.husky) {
     // Husky mode: remove all hook files from .husky/
     const huskyDir = join(process.cwd(), ".husky");
-    for (const hookType of ["pre-push", "pre-commit"]) {
+    for (const hookType of SUPPORTED_HOOK_TYPES) {
       const hookPath = join(huskyDir, hookType);
       if (existsSync(hookPath)) {
         unlinkSync(hookPath);

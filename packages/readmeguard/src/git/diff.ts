@@ -54,10 +54,16 @@ export function getUnpushedDiff(
 /**
  * Get the name of the current git branch.
  */
-export function getCurrentBranch(): string {
-  return execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
-    encoding: "utf-8",
-  }).trim();
+export function getCurrentBranch(): string | null {
+  try {
+    return execFileSync("git", ["rev-parse", "--abbrev-ref", "HEAD"], {
+      encoding: "utf-8",
+      stdio: ["pipe", "pipe", "pipe"],
+    }).trim();
+  } catch {
+    // HEAD doesn't exist yet (initial commit in a fresh repo)
+    return null;
+  }
 }
 
 /**

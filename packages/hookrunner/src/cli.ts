@@ -269,8 +269,9 @@ program
   .allowUnknownOption()
   .passThroughOptions()
   .action(async (hookType, args) => {
+    const validated = validateHookType(hookType);
     const config = loadConfig();
-    const hooks = config[hookType as keyof typeof config] ?? [];
+    const hooks = config[validated] ?? [];
     const stdinBuffer = await readStdin();
     const result = runHooks(hooks, stdinBuffer, args);
     process.exit(result.exitCode);

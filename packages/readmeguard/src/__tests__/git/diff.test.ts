@@ -27,7 +27,7 @@ function setupRepos(): { workDir: string; remoteDir: string } {
 
   // Create an initial commit and push so origin/main exists
   writeFileSync(join(workDir, "README.md"), "# Hello\n");
-  execSync("git add . && git commit -m 'initial'", { cwd: workDir });
+  execSync("git add . && git commit --no-verify -m 'initial'", { cwd: workDir });
   execSync("git push origin HEAD", { cwd: workDir });
 
   return { workDir, remoteDir };
@@ -74,7 +74,7 @@ describe("git/diff", () => {
 
     it("returns diff of unpushed commits", () => {
       writeFileSync(join(workDir, "newfile.ts"), "export const x = 1;\n");
-      execSync("git add . && git commit -m 'add newfile'", { cwd: workDir });
+      execSync("git add . && git commit --no-verify -m 'add newfile'", { cwd: workDir });
 
       const result = getUnpushedDiff([], 100_000);
       expect(result.diff).toContain("newfile.ts");
@@ -85,7 +85,7 @@ describe("git/diff", () => {
       execSync("git checkout -b feat/my-feature", { cwd: workDir });
       // Need a commit so we have something unpushed (branch has no upstream, falls back to origin/main)
       writeFileSync(join(workDir, "somefile.ts"), "hello\n");
-      execSync("git add . && git commit -m 'on feature branch'", {
+      execSync("git add . && git commit --no-verify -m 'on feature branch'", {
         cwd: workDir,
       });
 
@@ -96,7 +96,7 @@ describe("git/diff", () => {
     it("falls back to origin/main when no tracking branch", () => {
       execSync("git checkout -b untracked-branch", { cwd: workDir });
       writeFileSync(join(workDir, "untracked.ts"), "code\n");
-      execSync("git add . && git commit -m 'untracked commit'", {
+      execSync("git add . && git commit --no-verify -m 'untracked commit'", {
         cwd: workDir,
       });
 
@@ -108,7 +108,7 @@ describe("git/diff", () => {
     it("applies exclude patterns (filters out specified files)", () => {
       writeFileSync(join(workDir, "code.ts"), "real code\n");
       writeFileSync(join(workDir, "package-lock.json"), "lock content\n");
-      execSync("git add . && git commit -m 'add files'", { cwd: workDir });
+      execSync("git add . && git commit --no-verify -m 'add files'", { cwd: workDir });
 
       const result = getUnpushedDiff(["package-lock.json"], 100_000);
       expect(result.diff).toContain("code.ts");
@@ -118,7 +118,7 @@ describe("git/diff", () => {
     it("applies glob exclude patterns", () => {
       writeFileSync(join(workDir, "app.ts"), "app code\n");
       writeFileSync(join(workDir, "data.min.js"), "minified\n");
-      execSync("git add . && git commit -m 'add files'", { cwd: workDir });
+      execSync("git add . && git commit --no-verify -m 'add files'", { cwd: workDir });
 
       const result = getUnpushedDiff(["*.min.js"], 100_000);
       expect(result.diff).toContain("app.ts");
@@ -129,7 +129,7 @@ describe("git/diff", () => {
       // Create a file large enough to exceed a small maxDiffSize
       const bigContent = "x".repeat(5000) + "\n";
       writeFileSync(join(workDir, "big.ts"), bigContent);
-      execSync("git add . && git commit -m 'add big file'", { cwd: workDir });
+      execSync("git add . && git commit --no-verify -m 'add big file'", { cwd: workDir });
 
       const maxSize = 200;
       const result = getUnpushedDiff([], maxSize);

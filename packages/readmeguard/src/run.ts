@@ -38,6 +38,10 @@ export async function run(options: RunOptions = {}): Promise<number> {
   // Check skipBranches (unless bypassed by update command)
   if (!options.ignoreSkipBranches) {
     const branch = getCurrentBranch();
+    if (!branch) {
+      // No HEAD yet (initial commit in a fresh repo) — skip
+      return 0;
+    }
     if (config.skipBranches.some((pattern) => matchBranch(branch, pattern))) {
       return 0;
     }
