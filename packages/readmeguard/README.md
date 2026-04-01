@@ -5,11 +5,12 @@ Pre-push hook that uses AI to selectively update your READMEs when substantial c
 ## How it works
 
 1. You run `git push`.
-2. readmeguard discovers all `README.md` files tracked in the repository.
-3. It diffs your unpushed commits against the upstream branch and groups changed files by their closest README.
-4. An AI provider analyzes each scoped diff alongside the corresponding README.
-5. If any README needs updating, it either auto-commits the changes or prompts you to review each one (depending on mode).
-6. The push is blocked so you can push again with the README updates included.
+2. readmeguard detects the upstream branch (or falls back to `origin/main`).
+3. It discovers all `README.md` files tracked by git in the repository.
+4. It diffs your unpushed commits against the upstream and groups changed files by their closest README.
+5. An AI provider analyzes each scoped diff alongside the corresponding README.
+6. If any README needs updating, it either auto-commits the changes or prompts you to review each one individually (depending on mode).
+7. The push is blocked so you can push again with the README updates included.
 
 ## Prerequisites
 
@@ -62,6 +63,8 @@ packages/bar/README.md
 ```
 
 A change to `packages/foo/src/index.ts` will only trigger analysis of `packages/foo/README.md`. Changes to `src/app.ts` will only trigger analysis of the root `README.md`.
+
+In interactive mode, each README that needs updating is presented separately with its own diff and prompt, so you can accept, edit, or skip updates individually.
 
 ## Configuration
 
@@ -145,6 +148,27 @@ Run analysis manually in interactive mode, ignoring `skipBranches`. Useful for u
 ```bash
 readmeguard update
 ```
+
+## Programmatic API
+
+readmeguard exports its core functions for use in custom tooling:
+
+```ts
+import {
+  run,
+  analyze,
+  buildPrompt,
+  parseResponse,
+  discoverReadmes,
+  groupFilesByReadme,
+  findClosestReadme,
+  getDiffForFiles,
+  getUnpushedDiff,
+  getCurrentBranch,
+} from "@agent-automation/readmeguard";
+```
+
+The `discoverReadmes`, `groupFilesByReadme`, `findClosestReadme`, and `getDiffForFiles` functions provide the README-scoping logic, useful for building custom analysis pipelines on top of readmeguard.
 
 ## Example output
 
