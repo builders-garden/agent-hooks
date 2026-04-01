@@ -1,6 +1,8 @@
 # hook-template
 
-A minimal, well-documented template for creating new **pre-push hooks** in the agent-hooks monorepo. Copy this package, rename it, and replace the placeholder logic with your own.
+A minimal, well-documented template for creating new **git hooks** in the agent-hooks monorepo. Designed for AI agents as first-class users. Copy this package, rename it, and replace the placeholder logic with your own.
+
+Defaults to `pre-push`, but supports any git hook type (`pre-commit`, `commit-msg`, etc.) — just change the `HOOK_TYPE` constant in `init.ts` and `uninstall.ts`.
 
 Out of the box, the template is a fully runnable hook that prints a success message with branch name and diff size. This lets you verify the wiring works before writing real logic.
 
@@ -42,6 +44,16 @@ Do a project-wide find-and-replace in your new package:
 | `HookTemplate`     | `MyHook`           | types.ts, index.ts, tests            |
 | `.hook-template`   | `.my-hook`         | types.ts (config dir and file names) |
 
+### 4b. Choose your hook type (if not pre-push)
+
+In `src/setup/init.ts` and `src/setup/uninstall.ts`, change the `HOOK_TYPE` constant:
+
+```typescript
+const HOOK_TYPE = "pre-commit"; // or "commit-msg", "pre-push", etc.
+```
+
+When using hookrunner, this registers with `--type <your-type>`. Standalone mode installs to `.git/hooks/<your-type>`.
+
 ### 4. Add your hook logic
 
 Open `src/run.ts` and replace the placeholder section:
@@ -79,7 +91,7 @@ npm link
 If you have hookrunner:
 
 ```bash
-hookrunner add my-hook --command "my-hook run"
+hookrunner add my-hook --command "my-hook run" --type pre-push
 ```
 
 Or standalone:
@@ -138,11 +150,11 @@ Build configuration. Compiles `src/cli.ts` (the CLI entry point) and `src/index.
 
 ### `src/setup/init.ts`
 
-**Rename the HOOK_NAME constant.** Handles installation: detects hookrunner and registers with it, otherwise installs a standalone `.git/hooks/pre-push` script. Supports `--husky` flag.
+**Rename the HOOK_NAME and HOOK_TYPE constants.** Handles installation: detects hookrunner and registers with `--type`, otherwise installs a standalone `.git/hooks/<hook-type>` script. Supports `--husky` flag.
 
 ### `src/setup/uninstall.ts`
 
-**Rename the HOOK_NAME constant.** Mirror of init — unregisters from hookrunner or removes the standalone hook file.
+**Rename the HOOK_NAME and HOOK_TYPE constants.** Mirror of init — unregisters from hookrunner or removes the standalone hook file.
 
 ### `src/run.ts`
 
