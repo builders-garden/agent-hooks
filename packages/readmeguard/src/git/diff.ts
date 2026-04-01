@@ -8,7 +8,7 @@ import { execFileSync } from "node:child_process";
 export function getUnpushedDiff(
   exclude: string[],
   maxDiffSize: number,
-): { diff: string; branch: string } {
+): { diff: string; branch: string | null } {
   const branch = getCurrentBranch();
   const upstream = getUpstream();
 
