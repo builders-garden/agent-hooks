@@ -1,0 +1,47 @@
+import { createInterface } from "node:readline";
+import { diffLines } from "diff";
+
+export function showDiff(oldContent: string, newContent: string): void {
+  const changes = diffLines(oldContent, newContent);
+  for (const change of changes) {
+    if (change.added) {
+      process.stderr.write(`\x1b[32m+ ${change.value}\x1b[0m`);
+    } else if (change.removed) {
+      process.stderr.write(`\x1b[31m- ${change.value}\x1b[0m`);
+    }
+  }
+}
+
+export function isTTY(): boolean {
+  return process.stdin.isTTY === true;
+}
+
+export async function promptUser(): Promise<"Y" | "n" | "e"> {
+  const rl = createInterface({ input: process.stdin, output: process.stderr });
+  return new Promise((resolve) => {
+    rl.question(
+      "\nreadmeguard: Apply README update? [Y] Apply & push again  [n] Skip  [e] Edit first: ",
+      (answer) => {
+        rl.close();
+        const choice = answer.trim().toLowerCase();
+        if (choice === "n") resolve("n");
+        else if (choice === "e") resolve("e");
+        else resolve("Y");
+      },
+    );
+  });
+}
+
+export function showUpdateMessage(): void {
+  process.stderr.write(
+    "\nreadmeguard: README updated and committed. Run `git push` again to include the update.\n",
+  );
+}
+
+export function showSkipMessage(reason: string): void {
+  process.stderr.write(`readmeguard: Skipping \u2014 ${reason}\n`);
+}
+
+export function showWarning(message: string): void {
+  process.stderr.write(`readmeguard: warning: ${message}\n`);
+}

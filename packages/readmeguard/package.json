@@ -30,6 +30,10 @@
   ],
   "license": "MIT",
   "dependencies": {
-    "commander": "^14.0.3"
+    "commander": "^14.0.3",
+    "diff": "^8.0.4"
+  },
+  "devDependencies": {
+    "@types/diff": "^7.0.2"
   }
 }
