@@ -128,38 +128,28 @@ describe("output/formatter", () => {
   });
 
   describe("isTTY", () => {
-    it("returns true when stdin is a TTY", () => {
-      const originalIsTTY = process.stdin.isTTY;
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: true,
-        writable: true,
-        configurable: true,
-      });
+    it("returns true when /dev/tty is accessible", () => {
+      const fs = require("node:fs");
+      const openSpy = vi.spyOn(fs, "openSync").mockReturnValue(3);
+      const closeSpy = vi.spyOn(fs, "closeSync").mockImplementation(() => {});
 
       expect(isTTY()).toBe(true);
+      expect(openSpy).toHaveBeenCalledWith("/dev/tty", "r");
+      expect(closeSpy).toHaveBeenCalledWith(3);
 
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: originalIsTTY,
-        writable: true,
-        configurable: true,
-      });
+      openSpy.mockRestore();
+      closeSpy.mockRestore();
     });
 
-    it("returns false when stdin is not a TTY", () => {
-      const originalIsTTY = process.stdin.isTTY;
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: undefined,
-        writable: true,
-        configurable: true,
+    it("returns false when /dev/tty is not accessible", () => {
+      const fs = require("node:fs");
+      const openSpy = vi.spyOn(fs, "openSync").mockImplementation(() => {
+        throw new Error("ENXIO: no such device or address");
       });
 
       expect(isTTY()).toBe(false);
 
-      Object.defineProperty(process.stdin, "isTTY", {
-        value: originalIsTTY,
-        writable: true,
-        configurable: true,
-      });
+      openSpy.mockRestore();
     });
   });
 });

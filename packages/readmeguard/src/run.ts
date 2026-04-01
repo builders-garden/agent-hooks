@@ -1,14 +1,20 @@
-import { existsSync, readFileSync, writeFileSync } from "node:fs";
-import { execSync } from "node:child_process";
+import { readFileSync, writeFileSync } from "node:fs";
+import { execFileSync } from "node:child_process";
 import { join } from "node:path";
 import { loadConfig } from "./config/loader.js";
-import { getUnpushedDiff, getCurrentBranch } from "./git/diff.js";
+import { getCurrentBranch } from "./git/diff.js";
+import {
+  discoverReadmes,
+  getChangedFiles,
+  groupFilesByReadme,
+  getDiffForFiles,
+  getUpstream,
+} from "./git/readme-discovery.js";
 import { analyze } from "./analysis/analyzer.js";
 import {
   showDiff,
   promptUser,
   showUpdateMessage,
-  showSkipMessage,
   showWarning,
   isTTY,
 } from "./output/formatter.js";
@@ -38,44 +44,79 @@ export async function run(options: RunOptions = {}): Promise<number> {
     }
   }
 
-  // Check README exists
-  const readmePath = join(process.cwd(), "README.md");
-  if (!existsSync(readmePath)) {
+  // Find upstream ref
+  const upstream = getUpstream();
+  if (!upstream) {
     return 0;
   }
 
-  // Get diff
-  const { diff } = getUnpushedDiff(config.exclude, config.maxDiffSize);
-  if (!diff) {
+  // Discover all READMEs in the repo
+  const readmes = discoverReadmes();
+  if (readmes.length === 0) {
     return 0;
   }
 
-  process.stderr.write(`readmeguard: Analyzing ${Buffer.byteLength(diff)} bytes of changes...\n`);
-
-  // Run analysis
-  const currentReadme = readFileSync(readmePath, "utf-8");
-  let result;
-  try {
-    result = analyze(diff, currentReadme, config);
-  } catch (err) {
-    showWarning(`Analysis failed: ${(err as Error).message}`);
-    return config.failOnError ? 1 : 0;
-  }
-
-  if (result.decision === "NO_UPDATE") {
-    process.stderr.write("readmeguard: No README update needed.\n");
+  // Get changed files and group by closest README
+  const changedFiles = getChangedFiles(upstream, config.exclude);
+  if (changedFiles.length === 0) {
     return 0;
   }
 
-  // Handle update
-  const updatedReadme = result.updatedReadme!;
+  const readmeGroups = groupFilesByReadme(changedFiles, readmes);
+  if (readmeGroups.size === 0) {
+    return 0;
+  }
 
+  process.stderr.write(
+    `readmeguard: Analyzing changes across ${readmeGroups.size} README scope(s)...\n`,
+  );
+
+  // Analyze each README that has relevant changes
+  const updates: Array<{ path: string; content: string }> = [];
+
+  for (const [readmePath, files] of readmeGroups) {
+    const fullPath = join(process.cwd(), readmePath);
+    const currentReadme = readFileSync(fullPath, "utf-8");
+    const scopedDiff = getDiffForFiles(upstream, files, config.maxDiffSize);
+
+    if (!scopedDiff) continue;
+
+    process.stderr.write(
+      `readmeguard: Checking ${readmePath} (${files.length} changed file(s))...\n`,
+    );
+
+    let result;
+    try {
+      result = analyze(scopedDiff, currentReadme, config, readmePath);
+    } catch (err) {
+      showWarning(`Analysis failed for ${readmePath}: ${(err as Error).message}`);
+      if (config.failOnError) return 1;
+      continue;
+    }
+
+    if (result.decision === "UPDATE" && result.updatedReadme) {
+      updates.push({ path: readmePath, content: result.updatedReadme });
+    }
+  }
+
+  if (updates.length === 0) {
+    process.stderr.write("readmeguard: No README updates needed.\n");
+    return 0;
+  }
+
+  process.stderr.write(
+    `readmeguard: ${updates.length} README(s) to update: ${updates.map((u) => u.path).join(", ")}\n`,
+  );
+
+  // Handle updates based on mode
   if (config.mode === "auto") {
-    writeFileSync(readmePath, updatedReadme);
-    execSync("git add README.md");
-    execSync('git commit -m "docs: update README"');
+    for (const update of updates) {
+      writeFileSync(join(process.cwd(), update.path), update.content);
+      execFileSync("git", ["add", update.path]);
+    }
+    execFileSync("git", ["commit", "-m", "docs: update README(s)"]);
     showUpdateMessage();
-    return 1; // Block push so user pushes again with README update included
+    return 1;
   }
 
   // Interactive mode
@@ -84,26 +125,44 @@ export async function run(options: RunOptions = {}): Promise<number> {
     return 0;
   }
 
-  showDiff(currentReadme, updatedReadme);
-  const choice = await promptUser();
+  // Show diff for each update and prompt
+  for (const update of updates) {
+    const fullPath = join(process.cwd(), update.path);
+    const currentContent = readFileSync(fullPath, "utf-8");
 
-  if (choice === "n") {
+    process.stderr.write(`\n--- ${update.path} ---\n`);
+    showDiff(currentContent, update.content);
+
+    const choice = await promptUser();
+
+    if (choice === "n") {
+      continue;
+    }
+
+    if (choice === "e") {
+      writeFileSync(fullPath, update.content);
+      const editor = process.env.EDITOR || "vi";
+      execFileSync(editor, [fullPath], { stdio: "inherit" });
+    } else {
+      writeFileSync(fullPath, update.content);
+    }
+
+    execFileSync("git", ["add", update.path]);
+  }
+
+  // Check if anything was staged
+  const staged = execFileSync("git", ["diff", "--cached", "--name-only"], {
+    encoding: "utf-8",
+  }).trim();
+
+  if (!staged) {
+    process.stderr.write("readmeguard: All updates skipped.\n");
     return 0;
   }
 
-  if (choice === "e") {
-    // Write proposed README, open in $EDITOR
-    writeFileSync(readmePath, updatedReadme);
-    const editor = process.env.EDITOR || "vi";
-    execSync(`${editor} ${readmePath}`, { stdio: "inherit" });
-  } else {
-    writeFileSync(readmePath, updatedReadme);
-  }
-
-  execSync("git add README.md");
-  execSync('git commit -m "docs: update README"');
+  execFileSync("git", ["commit", "-m", "docs: update README(s)"]);
   showUpdateMessage();
-  return 1; // Block push so user pushes again with README update included
+  return 1;
 }
 
 function matchBranch(branch: string, pattern: string): boolean {
