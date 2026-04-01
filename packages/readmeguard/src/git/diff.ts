@@ -43,9 +43,9 @@ export function getUnpushedDiff(
     { encoding: "utf-8", maxBuffer: Math.max(maxDiffSize * 2, 1024 * 1024) },
   );
 
-  // Truncate if needed
+  // Truncate if needed (by bytes, not characters, to handle multi-byte UTF-8)
   if (Buffer.byteLength(diff) > maxDiffSize) {
-    diff = diff.slice(0, maxDiffSize);
+    diff = Buffer.from(diff).subarray(0, maxDiffSize).toString("utf-8");
   }
 
   return { diff, branch };

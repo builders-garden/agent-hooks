@@ -109,12 +109,14 @@ export async function run(options: RunOptions = {}): Promise<number> {
   );
 
   // Handle updates based on mode
+  const updatedPaths = updates.map((u) => u.path);
+
   if (config.mode === "auto") {
     for (const update of updates) {
       writeFileSync(join(process.cwd(), update.path), update.content);
       execFileSync("git", ["add", update.path]);
     }
-    execFileSync("git", ["commit", "-m", "docs: update README(s)"]);
+    execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...updatedPaths]);
     showUpdateMessage();
     return 1;
   }
@@ -150,17 +152,22 @@ export async function run(options: RunOptions = {}): Promise<number> {
     execFileSync("git", ["add", update.path]);
   }
 
-  // Check if anything was staged
-  const staged = execFileSync("git", ["diff", "--cached", "--name-only"], {
-    encoding: "utf-8",
-  }).trim();
+  // Track which paths were actually staged
+  const stagedPaths: string[] = [];
+  for (const update of updates) {
+    // Check if this specific file was staged (user might have chosen 'n' for some)
+    const status = execFileSync("git", ["diff", "--cached", "--name-only", "--", update.path], {
+      encoding: "utf-8",
+    }).trim();
+    if (status) stagedPaths.push(update.path);
+  }
 
-  if (!staged) {
+  if (stagedPaths.length === 0) {
     process.stderr.write("readmeguard: All updates skipped.\n");
     return 0;
   }
 
-  execFileSync("git", ["commit", "-m", "docs: update README(s)"]);
+  execFileSync("git", ["commit", "-m", "docs: update README(s)", "--", ...stagedPaths]);
   showUpdateMessage();
   return 1;
 }

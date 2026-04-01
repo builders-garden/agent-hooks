@@ -192,7 +192,7 @@ describe("run", () => {
         "# New README",
       );
       expect(mockExecFileSync).toHaveBeenCalledWith("git", ["add", "packages/hookrunner/README.md"]);
-      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["commit", "-m", "docs: update README(s)"]);
+      expect(mockExecFileSync).toHaveBeenCalledWith("git", ["commit", "-m", "docs: update README(s)", "--", "packages/hookrunner/README.md"]);
       expect(mockShowUpdateMessage).toHaveBeenCalled();
     });
 

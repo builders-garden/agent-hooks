@@ -1,5 +1,5 @@
 import { execFileSync } from "node:child_process";
-import { dirname, join, relative } from "node:path";
+import { dirname } from "node:path";
 
 /**
  * Discover all README.md files tracked by git in the repository.
@@ -104,7 +104,7 @@ export function getDiffForFiles(
   );
 
   if (Buffer.byteLength(diff) > maxDiffSize) {
-    diff = diff.slice(0, maxDiffSize);
+    diff = Buffer.from(diff).subarray(0, maxDiffSize).toString("utf-8");
   }
 
   return diff;
